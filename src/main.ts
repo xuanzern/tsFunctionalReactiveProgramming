@@ -1,6 +1,6 @@
 import "./style.css";
 import { interval, fromEvent, of, merge} from 'rxjs'
-import { map, filter, scan} from 'rxjs/operators'
+import { map, filter, scan, reduce} from 'rxjs/operators'
 function main() {
   /**
    * Inside this function you will use the classes and functions from rx.js
@@ -24,13 +24,13 @@ function main() {
   } as const
 
   class Tick { constructor(public readonly elapsed:number) {} }
-  class Move { constructor(public readonly axis: 'cy'|'cx', public readonly change: -10 | 10) {}}
+  class Move { constructor(public readonly axis: 'y'|'x', public readonly change: -10 | 10) {}}
 
   const keydown$ = fromEvent<KeyboardEvent>(document, "keydown");
-  const up$ = keydown$.pipe(filter(e => String(e.key) == "w"), map(_ => new Move('cy', -10)));
-  const down$ = keydown$.pipe(filter(e => String(e.key) == "s"), map(_ => new Move('cy', 10)));
-  const left$ = keydown$.pipe(filter(e => String(e.key) == "a"), map(_ => new Move('cx', -10)));
-  const right$ = keydown$.pipe(filter(e => String(e.key) == "d"), map(_ => new Move('cx', 10)));
+  const up$ = keydown$.pipe(filter(e => String(e.key) == "w"), map(_ => new Move('y', -10)));
+  const down$ = keydown$.pipe(filter(e => String(e.key) == "s"), map(_ => new Move('y', 10)));
+  const left$ = keydown$.pipe(filter(e => String(e.key) == "a"), map(_ => new Move('x', -10)));
+  const right$ = keydown$.pipe(filter(e => String(e.key) == "d"), map(_ => new Move('x', 10)));
 
   const keyboardmove$ = merge(up$, down$, left$, right$);
 
@@ -40,8 +40,8 @@ function main() {
 
   type Frog = Readonly<{
     id: string,
-    cx: number,
-    cy: number
+    x: number,
+    y: number
   }>
 
   type State = Readonly<{
@@ -51,8 +51,8 @@ function main() {
   const initialState: State ={
     frog:{
       id: "frog",
-      cx: Constants.FrogStartX,
-      cy: Constants.FrogStartY
+      x: Constants.FrogStartX,
+      y: Constants.FrogStartY
     }
   }
 
@@ -60,8 +60,8 @@ function main() {
     if (event instanceof Move){
       return {...currentState, frog: {
         ...currentState.frog, 
-        cx: event.axis === 'cx' ? (currentState.frog.cx + event.change) : currentState.frog.cx,
-        cy: event.axis === 'cy' ? (currentState.frog.cy + event.change) : currentState.frog.cy,
+        x: event.axis === 'x' ? (currentState.frog.x + event.change) : currentState.frog.x,
+        y: event.axis === 'y' ? (currentState.frog.y + event.change) : currentState.frog.y,
       }
     }
     } else {
@@ -82,7 +82,14 @@ function main() {
   );
   svg.appendChild(circle);
 
+  function updateView(s: State){
+    const canvas = document.getElementById("svgCanvas")!;
+    const frog = document.getElementById(s.frog.id);
+    frog?.setAttribute("x", String(s.frog.x));
+    frog?.setAttribute("y", String(s.frog.y));
+  }
 
+  merge(keyboardmove$, tick$).pipe(scan(reduceState, initialState)).subscribe(updateView);
 }
 
 // The following simply runs your main function on window load.  Make sure to leave it in place.
