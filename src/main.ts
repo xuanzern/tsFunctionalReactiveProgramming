@@ -18,19 +18,20 @@ function main() {
   const Constants = {
     CanvasSize: 600,
     GameTickDuration: 100,
-    FrogStartX: 100,
-    FrogStartY: 100,
+    FrogStartX: 250,
+    FrogStartY: 550,
+    MoveChange: 60
 
   } as const
 
   class Tick { constructor(public readonly elapsed:number) {} }
-  class Move { constructor(public readonly axis: 'y'|'x', public readonly change: -10 | 10) {}}
+  class Move { constructor(public readonly axis: 'y'|'x', public readonly change: -60 | 60) {}}
 
   const keydown$ = fromEvent<KeyboardEvent>(document, "keydown");
-  const up$ = keydown$.pipe(filter(e => String(e.key) == "w"), map(_ => new Move('y', -10)));
-  const down$ = keydown$.pipe(filter(e => String(e.key) == "s"), map(_ => new Move('y', 10)));
-  const left$ = keydown$.pipe(filter(e => String(e.key) == "a"), map(_ => new Move('x', -10)));
-  const right$ = keydown$.pipe(filter(e => String(e.key) == "d"), map(_ => new Move('x', 10)));
+  const up$ = keydown$.pipe(filter(e => String(e.key) == "w"), map(_ => new Move('y', -60)));
+  const down$ = keydown$.pipe(filter(e => String(e.key) == "s"), map(_ => new Move('y', 60)));
+  const left$ = keydown$.pipe(filter(e => String(e.key) == "a"), map(_ => new Move('x', -60)));
+  const right$ = keydown$.pipe(filter(e => String(e.key) == "d"), map(_ => new Move('x', 60)));
 
   const keyboardmove$ = merge(up$, down$, left$, right$);
 
@@ -53,7 +54,7 @@ function main() {
       id: "frog",
       x: Constants.FrogStartX,
       y: Constants.FrogStartY
-    }
+    },
   }
 
   const reduceState = (currentState: State, event: Move|Tick): State => {
@@ -75,7 +76,7 @@ function main() {
   const circle = document.createElementNS(svg.namespaceURI, "circle");
   circle.setAttribute("r", "10");
   circle.setAttribute("cx", "100");
-  circle.setAttribute("cy", "100");
+  circle.setAttribute("cy", "280");
   circle.setAttribute(
     "style",
     "fill: green; stroke: green; stroke-width: 1px;"
