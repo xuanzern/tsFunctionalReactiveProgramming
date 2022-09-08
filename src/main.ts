@@ -20,14 +20,28 @@ function main() {
     GameTickDuration: 100,
     FrogStartX: 250,
     FrogStartY: 550,
-    MoveChange: 60
-
+    MoveChange: 60,
+    CarWidth: 55,
+    CarHeight: 30,
+    CarSeparation: 50,
+    CarRow1: 500,
+    CarRow2: 450,
+    CarRow3: 400
   } as const
 
+  /* 
+  ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
+      Classes
+  └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+  */
   class Tick { constructor(public readonly elapsed:number) {} }
   class Move { constructor(public readonly axis: 'y'|'x', public readonly change: -60 | 60) {}}
 
-
+  /* 
+  ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
+      Observable Streams
+  └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+  */
   const keydown$ = fromEvent<KeyboardEvent>(document, "keydown");
   const up$ = keydown$.pipe(filter(e => String(e.key) == "w"), map(_ => new Move('y', -60)));
   const down$ = keydown$.pipe(filter(e => String(e.key) == "s"), map(_ => new Move('y', 60)));
@@ -57,8 +71,6 @@ function main() {
     cars: Readonly<Body[]>
   }>
 
-
-  
   /* 
   ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
       Functions 
@@ -73,6 +85,20 @@ function main() {
     return wrap(x);
   }
 
+  function createCars(colNum: number, rowNum: number, cars: Body[]): Body[]{
+    if (colNum === 0){
+      return cars;
+    }
+    else{
+      const newCar: Body = {
+        id: "car" + colNum + rowNum,
+        bodyType: "car",
+        x: colNum*(Constants.CarWidth + Constants.CarSeparation),
+        y: rowNum,
+      }
+      return createCars(colNum-1, rowNum, cars.concat(newCar));
+    }
+  }
   
 
   /* 
@@ -87,7 +113,7 @@ function main() {
       x: Constants.FrogStartX,
       y: Constants.FrogStartY
     },
-    cars: []
+    cars: createCars(5, Constants.CarRow1, [])
   }
 
   const reduceState = (currentState: State, event: Move|Tick): State => {
@@ -98,30 +124,62 @@ function main() {
         y: event.axis === 'y' ? (currentState.frog.y + event.change) : currentState.frog.y,
       }
     }
+    }else if (event instanceof Tick){
+      return {
+        ...currentState,
+        cars: currentState.cars.map((car: Body) => {
+          return {...car, x: torusWrap(car.x + 10)};
+        })
+      }
     } else {
       return currentState
     }
   }
 
-  
 
-  const svg = document.querySelector("#svgCanvas") as SVGElement & HTMLElement;
-  // Example on adding an element
-  const circle = document.createElementNS(svg.namespaceURI, "circle");
-  circle.setAttribute("r", "10");
-  circle.setAttribute("cx", "100");
-  circle.setAttribute("cy", "280");
-  circle.setAttribute(
-    "style",
-    "fill: green; stroke: green; stroke-width: 1px;"
-  );
-  svg.appendChild(circle);
+  // const svg = document.querySelector("#svgCanvas") as SVGElement & HTMLElement;
+  // // Example on adding an element
+  // const circle = document.createElementNS(svg.namespaceURI, "circle");
+  // circle.setAttribute("r", "10");
+  // circle.setAttribute("cx", "100");
+  // circle.setAttribute("cy", "280");
+  // circle.setAttribute(
+  //   "style",
+  //   "fill: green; stroke: green; stroke-width: 1px;"
+  // );
+  // svg.appendChild(circle);
 
   function updateView(s: State){
     const canvas = document.getElementById("svgCanvas")!;
+    //frog
     const frog = document.getElementById(s.frog.id);
     frog?.setAttribute("x", String(s.frog.x));
     frog?.setAttribute("y", String(s.frog.y));
+
+    //cars
+    s.cars.forEach((carState: Body) => {
+      const car = document.getElementById(carState.id);
+
+      if (car === null){
+        const newCar = document.createElementNS(canvas.namespaceURI, "rect");
+
+        newCar.setAttribute("id", carState.id);
+        newCar.setAttribute("width", String(Constants.CarWidth));
+        newCar.setAttribute("height", String(Constants.CarHeight));
+        newCar.setAttribute("x", String(carState.x));
+        newCar.setAttribute("y", String(carState.y));
+        newCar.setAttribute(
+          "style",
+          "fill: red"
+        )
+        canvas.appendChild(newCar)
+      } 
+      else{
+        car.setAttribute("x", String(carState.x));
+      }
+    }
+    )
+
   }
 
   merge(up$, down$, left$, right$, tick$).pipe(scan(reduceState, initialState)).subscribe(updateView);
