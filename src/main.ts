@@ -27,41 +27,74 @@ function main() {
   class Tick { constructor(public readonly elapsed:number) {} }
   class Move { constructor(public readonly axis: 'y'|'x', public readonly change: -60 | 60) {}}
 
+
   const keydown$ = fromEvent<KeyboardEvent>(document, "keydown");
   const up$ = keydown$.pipe(filter(e => String(e.key) == "w"), map(_ => new Move('y', -60)));
   const down$ = keydown$.pipe(filter(e => String(e.key) == "s"), map(_ => new Move('y', 60)));
   const left$ = keydown$.pipe(filter(e => String(e.key) == "a"), map(_ => new Move('x', -60)));
   const right$ = keydown$.pipe(filter(e => String(e.key) == "d"), map(_ => new Move('x', 60)));
 
-  const keyboardmove$ = merge(up$, down$, left$, right$);
-
   const tick$ = interval(Constants.GameTickDuration).pipe(
     map(number => new Tick(number))
   );
+  
+  /* 
+  ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
+      Types  
+  └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+  */
+  type BodyType = "frog" | "car";
 
-  type Frog = Readonly<{
+  type Body = Readonly<{
     id: string,
+    bodyType: BodyType,
     x: number,
     y: number
   }>
 
   type State = Readonly<{
-    frog: Frog,
+    frog: Body,
+    cars: Readonly<Body[]>
   }>
 
+
+  
+  /* 
+  ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
+      Functions 
+  └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+  */
+  const torusWrap = (x: number) => { 
+    const s=Constants.CanvasSize, 
+      wrap = (v:number) => v < 0 ? 
+                        v + s : 
+                            v > s ? 
+                            v - s : v;
+    return wrap(x);
+  }
+
+  
+
+  /* 
+  ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
+      Game Creation and Update
+  └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+  */
   const initialState: State ={
     frog:{
       id: "frog",
+      bodyType: "frog",
       x: Constants.FrogStartX,
       y: Constants.FrogStartY
     },
+    cars: []
   }
 
   const reduceState = (currentState: State, event: Move|Tick): State => {
     if (event instanceof Move){
       return {...currentState, frog: {
         ...currentState.frog, 
-        x: event.axis === 'x' ? (currentState.frog.x + event.change) : currentState.frog.x,
+        x: event.axis === 'x' ? (torusWrap(currentState.frog.x + event.change)) : currentState.frog.x,
         y: event.axis === 'y' ? (currentState.frog.y + event.change) : currentState.frog.y,
       }
     }
@@ -69,7 +102,8 @@ function main() {
       return currentState
     }
   }
-  merge(keyboardmove$, tick$).pipe(scan(reduceState, initialState)).subscribe();
+
+  
 
   const svg = document.querySelector("#svgCanvas") as SVGElement & HTMLElement;
   // Example on adding an element
@@ -90,7 +124,7 @@ function main() {
     frog?.setAttribute("y", String(s.frog.y));
   }
 
-  merge(keyboardmove$, tick$).pipe(scan(reduceState, initialState)).subscribe(updateView);
+  merge(up$, down$, left$, right$, tick$).pipe(scan(reduceState, initialState)).subscribe(updateView);
 }
 
 // The following simply runs your main function on window load.  Make sure to leave it in place.
