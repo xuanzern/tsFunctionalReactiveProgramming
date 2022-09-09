@@ -30,7 +30,12 @@ function main() {
     CarSpacingFromZones: 15,
     CarRow1: 480,
     CarRow2: 420,
-    CarRow3: 360
+    CarRow3: 360,
+    LogWidth: 100,
+    LogHeight: 40,
+    LogSeparation: 150,
+    LogSpacingFromZones: 10,
+    LogRow1: 240
   } as const
 
   /* 
@@ -77,61 +82,76 @@ function main() {
       Types  
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
-  type BodyType = "frog" | "car";
+  type BodyType = "frog" | "car" | "log";
 
   type Body = Readonly<{
     id: string,
     bodyType: BodyType,
-    pos: Vec,
+    x: number,
+    y: number,
     w: number,
     h: number
   }>
 
   type State = Readonly<{
     frog: Body,
-    cars: Readonly<Body[]>
+    cars: Readonly<Body[]>,
+    logs: Readonly<Body[]>,
     gameOver: boolean
   }>
 
   /* 
   ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
-      Functions 
+      Game Physics/Creation Functions 
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
-  const torusWrap = ({x,y}:Vec) => { 
+  const torusWrap = (x: number) => { 
     const s=Constants.CanvasSize, 
-      wrap = (v:number) => v < 0 ? v + s : v > s ? v - s : v;
-    return new Vec(wrap(x),wrap(y))
+      wrap = (v:number) => v < 0 ? 
+                        v + s : 
+                            v > s ? 
+                            v - s : v;
+    return wrap(x);
   }
 
   //https://developer.mozilla.org/en-US/docs/Games/Techniques/2D_collision_detection
   const handleCollisions = (s: State) => {
     const bodiesCollided = ([a,b]: [Body, Body]) => 
-      a.pos.x < b.pos.x + b.w &&
-      a.pos.x + a.w > b.pos.x &&
-      a.pos.y < b.pos.y + b.h &&
-      a.h + a.pos.y > b.pos.y
-    const frogCollided = s.cars.filter(r => bodiesCollided([s.frog,r])).length > 0
+      a.x < b.x + b.w &&
+      a.x + a.w > b.x &&
+      a.y < b.y + b.h &&
+      a.h + a.y > b.y
+    const frogCollidedWithCar = s.cars.filter(r => bodiesCollided([s.frog,r])).length > 0
+    const frogCollideWithLog = s.logs.filter(r => bodiesCollided([s.frog,r])).length > 0
 
     return <State>{
       ...s,
-      gameOver: frogCollided
+      gameOver: frogCollidedWithCar
     }
   }
 
+  const createBody = (id: String, bodyType: BodyType, x: number, y: number, w: number, h: number) => 
+    <Body>{
+      id: id,
+      bodyType: bodyType,
+      x: x,
+      y: y,
+      w: w,
+      h: h,
+    }
 
   function createCarsForEachCarRow(colNum: number, rowNum: number, cars: Body[]): Body[]{
     function createCars(colNum: number, rowNum: number, cars: Body[]): Body[]{
       return colNum === 0 ? 
         cars : 
         createCars(colNum-1, rowNum, cars.concat(
-            {
-              id: "car" + colNum + rowNum,
-              bodyType: "car",
-              pos: new Vec(colNum*(Constants.CarWidth + Constants.CarSeparation), rowNum),
-              w: Constants.CarWidth,
-              h: Constants.CarHeight
-            }
+          createBody("car" + colNum + rowNum, 
+                      "car", 
+                      colNum*(Constants.CarWidth + Constants.CarSeparation),
+                      rowNum,
+                      Constants.CarWidth,
+                      Constants.CarHeight
+                      )
           )
         )
     }
@@ -139,6 +159,20 @@ function main() {
       cars : cars.concat(createCarsForEachCarRow(colNum, rowNum + Constants.RowHeight, createCars(colNum, rowNum+Constants.RowHeight,cars)))
   }
   
+  function createLogs(colNum: number, rowNum: number, cars: Body[]): Body[]{
+    return colNum === 0 ? 
+      cars : 
+      createLogs(colNum-1, rowNum, cars.concat(
+        createBody("log" + colNum + rowNum, 
+                    "log", 
+                    colNum*(Constants.LogWidth + Constants.LogSeparation),
+                    rowNum,
+                    Constants.LogWidth,
+                    Constants.LogHeight
+                    )
+        )
+      )
+  }
 
   /* 
   ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
@@ -146,14 +180,16 @@ function main() {
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
   const initialState: State ={
-    frog:{
-      id: "frog",
-      bodyType: "frog",
-      pos: new Vec(Constants.FrogStartX, Constants.FrogStartY),
-      w: Constants.FrogWidth,
-      h: Constants.FrogHeight
-    },
+    frog: createBody(
+          "frog",
+          "frog", 
+          Constants.FrogStartX, 
+          Constants.FrogStartY,
+          Constants.FrogWidth,
+          Constants.FrogHeight
+        ),
     cars: createCarsForEachCarRow(3, Constants.CarRow3 - Constants.RowHeight + Constants.CarSpacingFromZones, []),
+    logs: createLogs(3, Constants.LogRow1 + Constants.LogSpacingFromZones, []),
     gameOver: false
   }
 
@@ -161,17 +197,20 @@ function main() {
     if (event instanceof Move){
       const newState = <State>{...currentState, frog: {
         ...currentState.frog, 
-        pos: event.axis === 'x' ? torusWrap(new Vec((currentState.frog.pos.x + event.change), currentState.frog.pos.y)) :
-              new Vec((currentState.frog.pos.x), (currentState.frog.pos.y+ event.change))
-        }
+        x: event.axis === 'x' ? (torusWrap(currentState.frog.x + event.change)) : currentState.frog.x,
+        y: event.axis === 'y' ? (currentState.frog.y + event.change) : currentState.frog.y,
+      }
       }
       return handleCollisions(newState);
     }else if (event instanceof Tick){
       const newState = <State>{
         ...currentState,
-        cars: currentState.cars.map((car: Body) => {
-          return {...car, pos: torusWrap(new Vec(car.pos.x+10, car.pos.y))};
-        })
+        cars: (currentState.cars.map((car: Body) => {
+          return {...car, x: torusWrap(car.x+10)};
+        })),
+        logs: (currentState.logs.map((log: Body) => {
+          return {...log, x: torusWrap(log.x+10)};
+        }))
       }
       return handleCollisions(newState);
     } else {
@@ -205,8 +244,8 @@ function main() {
         newCar.setAttribute("id", carState.id);
         newCar.setAttribute("width", String(Constants.CarWidth));
         newCar.setAttribute("height", String(Constants.CarHeight));
-        newCar.setAttribute("x", String(carState.pos.x));
-        newCar.setAttribute("y", String(carState.pos.y));
+        newCar.setAttribute("x", String(carState.x));
+        newCar.setAttribute("y", String(carState.y));
         newCar.setAttribute(
           "style",
           "fill: red"
@@ -214,26 +253,51 @@ function main() {
         canvas.appendChild(newCar)
       } 
       else{
-        car.setAttribute("x", String(carState.pos.x));
+        car.setAttribute("x", String(carState.x));
       }
     }
     )
+    
+
+    s.logs.forEach((logState: Body) => {
+      const log = document.getElementById(logState.id);
+
+      if (log === null){
+        const newLog = document.createElementNS(canvas.namespaceURI, "rect");
+
+        newLog.setAttribute("id", logState.id);
+        newLog.setAttribute("width", String(Constants.LogWidth));
+        newLog.setAttribute("height", String(Constants.LogHeight));
+        newLog.setAttribute("x", String(logState.x));
+        newLog.setAttribute("y", String(logState.y));
+        newLog.setAttribute(
+          "style",
+          "fill: brown"
+        )
+        canvas.appendChild(newLog)
+      } 
+      else{
+        log.setAttribute("x", String(logState.x));
+      }
+    }
+    )
+
     //frog
     if (frog === null){
       const newFrog = document.createElementNS(canvas.namespaceURI, "rect");
       newFrog.setAttribute("id", s.frog.id);
       newFrog.setAttribute("width", String(Constants.FrogWidth));
       newFrog.setAttribute("height", String(Constants.FrogHeight));
-      newFrog.setAttribute("x", String(s.frog.pos.x));
-      newFrog.setAttribute("y", String(s.frog.pos.y));
+      newFrog.setAttribute("x", String(s.frog.x));
+      newFrog.setAttribute("y", String(s.frog.y));
       newFrog.setAttribute(
         "style",
         "fill: yellowgreen"
       );
       canvas.appendChild(newFrog);
     } else{
-      frog.setAttribute("x", String(s.frog.pos.x));
-      frog.setAttribute("y", String(s.frog.pos.y));
+      frog.setAttribute("x", String(s.frog.x));
+      frog.setAttribute("y", String(s.frog.y));
       if (s.gameOver === true){
         frog.setAttribute(
           "style",
@@ -246,6 +310,7 @@ function main() {
         )
       }
     }
+
   }
 
   merge(up$, down$, left$, right$, tick$).pipe(scan(reduceState, initialState)).subscribe(updateView);
