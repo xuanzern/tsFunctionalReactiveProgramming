@@ -17,16 +17,18 @@ function main() {
    */
   const Constants = {
     CanvasSize: 600,
-    GameTickDuration: 100,
+    GameTickDuration: 150,
     FrogStartX: 250,
     FrogStartY: 550,
     MoveChange: 60,
     CarWidth: 55,
     CarHeight: 30,
-    CarSeparation: 50,
-    CarRow1: 500,
-    CarRow2: 450,
-    CarRow3: 400
+    CarSeparation: 100,
+    RowHeight: 60,
+    CarSpacingFromZones: 15,
+    CarRow1: 480,
+    CarRow2: 420,
+    CarRow3: 360
   } as const
 
   /* 
@@ -85,19 +87,22 @@ function main() {
     return wrap(x);
   }
 
-  function createCars(colNum: number, rowNum: number, cars: Body[]): Body[]{
-    if (colNum === 0){
-      return cars;
+  function createCarsForEachCarRow(colNum: number, rowNum: number, cars: Body[]): Body[]{
+    function createCars(colNum: number, rowNum: number, cars: Body[]): Body[]{
+      return colNum === 0 ? 
+        cars : 
+        createCars(colNum-1, rowNum, cars.concat(
+            {
+              id: "car" + colNum + rowNum,
+              bodyType: "car",
+              x: colNum*(Constants.CarWidth + Constants.CarSeparation),
+              y: rowNum,
+            }
+          )
+        )
     }
-    else{
-      const newCar: Body = {
-        id: "car" + colNum + rowNum,
-        bodyType: "car",
-        x: colNum*(Constants.CarWidth + Constants.CarSeparation),
-        y: rowNum,
-      }
-      return createCars(colNum-1, rowNum, cars.concat(newCar));
-    }
+    return rowNum > Constants.CarRow1?
+      cars : cars.concat(createCarsForEachCarRow(colNum, rowNum + Constants.RowHeight, createCars(colNum, rowNum+Constants.RowHeight,cars)))
   }
   
 
@@ -113,7 +118,8 @@ function main() {
       x: Constants.FrogStartX,
       y: Constants.FrogStartY
     },
-    cars: createCars(5, Constants.CarRow1, [])
+    cars: createCarsForEachCarRow(3, Constants.CarRow3 - Constants.RowHeight + Constants.CarSpacingFromZones, [])
+
   }
 
   const reduceState = (currentState: State, event: Move|Tick): State => {
