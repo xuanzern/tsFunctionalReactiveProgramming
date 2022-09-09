@@ -82,12 +82,15 @@ function main() {
   type Body = Readonly<{
     id: string,
     bodyType: BodyType,
-    pos: Vec
+    pos: Vec,
+    w: number,
+    h: number
   }>
 
   type State = Readonly<{
     frog: Body,
     cars: Readonly<Body[]>
+    gameOver: boolean
   }>
 
   /* 
@@ -101,6 +104,22 @@ function main() {
     return new Vec(wrap(x),wrap(y))
   }
 
+  //https://developer.mozilla.org/en-US/docs/Games/Techniques/2D_collision_detection
+  const handleCollisions = (s: State) => {
+    const bodiesCollided = ([a,b]: [Body, Body]) => 
+      a.pos.x < b.pos.x + b.w &&
+      a.pos.x + a.w > b.pos.x &&
+      a.pos.y < b.pos.y + b.h &&
+      a.h + a.pos.y > b.pos.y
+    const frogCollided = s.cars.filter(r => bodiesCollided([s.frog,r])).length > 0
+
+    return <State>{
+      ...s,
+      gameOver: frogCollided
+    }
+  }
+
+
   function createCarsForEachCarRow(colNum: number, rowNum: number, cars: Body[]): Body[]{
     function createCars(colNum: number, rowNum: number, cars: Body[]): Body[]{
       return colNum === 0 ? 
@@ -109,7 +128,9 @@ function main() {
             {
               id: "car" + colNum + rowNum,
               bodyType: "car",
-              pos: new Vec(colNum*(Constants.CarWidth + Constants.CarSeparation), rowNum)
+              pos: new Vec(colNum*(Constants.CarWidth + Constants.CarSeparation), rowNum),
+              w: Constants.CarWidth,
+              h: Constants.CarHeight
             }
           )
         )
@@ -129,26 +150,30 @@ function main() {
       id: "frog",
       bodyType: "frog",
       pos: new Vec(Constants.FrogStartX, Constants.FrogStartY),
+      w: Constants.FrogWidth,
+      h: Constants.FrogHeight
     },
-    cars: createCarsForEachCarRow(3, Constants.CarRow3 - Constants.RowHeight + Constants.CarSpacingFromZones, [])
-
+    cars: createCarsForEachCarRow(3, Constants.CarRow3 - Constants.RowHeight + Constants.CarSpacingFromZones, []),
+    gameOver: false
   }
 
   const reduceState = (currentState: State, event: Move|Tick): State => {
     if (event instanceof Move){
-      return {...currentState, frog: {
+      const newState = <State>{...currentState, frog: {
         ...currentState.frog, 
         pos: event.axis === 'x' ? torusWrap(new Vec((currentState.frog.pos.x + event.change), currentState.frog.pos.y)) :
               new Vec((currentState.frog.pos.x), (currentState.frog.pos.y+ event.change))
+        }
       }
-    }
+      return handleCollisions(newState);
     }else if (event instanceof Tick){
-      return {
+      const newState = <State>{
         ...currentState,
         cars: currentState.cars.map((car: Body) => {
           return {...car, pos: torusWrap(new Vec(car.pos.x+10, car.pos.y))};
         })
       }
+      return handleCollisions(newState);
     } else {
       return currentState
     }
@@ -209,6 +234,17 @@ function main() {
     } else{
       frog.setAttribute("x", String(s.frog.pos.x));
       frog.setAttribute("y", String(s.frog.pos.y));
+      if (s.gameOver === true){
+        frog.setAttribute(
+          "style",
+          "fill: red"
+        )
+      }else{
+        frog.setAttribute(
+          "style",
+          "fill: yellowgreen"
+        )
+      }
     }
   }
 
