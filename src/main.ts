@@ -20,6 +20,8 @@ function main() {
     GameTickDuration: 150,
     FrogStartX: 250,
     FrogStartY: 550,
+    FrogWidth: 30,
+    FrogHeight: 35,
     MoveChange: 60,
     CarWidth: 55,
     CarHeight: 30,
@@ -36,8 +38,24 @@ function main() {
       Classes
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
-  class Tick { constructor(public readonly elapsed:number) {} }
-  class Move { constructor(public readonly axis: 'y'|'x', public readonly change: -60 | 60) {}}
+  class Tick { constructor(public readonly elapsed:number) {} };
+  class Move { constructor(public readonly axis: 'y'|'x', public readonly change: -60 | 60) {}};
+  class Vec {
+    constructor(public readonly x: number = 0, public readonly y: number = 0) {}
+    add = (b:Vec) => new Vec(this.x + b.x, this.y + b.y)
+    sub = (b:Vec) => this.add(b.scale(-1))
+    len = ()=> Math.sqrt(this.x*this.x + this.y*this.y)
+    scale = (s:number) => new Vec(this.x*s,this.y*s)
+    ortho = ()=> new Vec(this.y,-this.x)
+    rotate = (deg:number) =>
+              (rad =>(
+                  (cos,sin,{x,y})=>new Vec(x*cos - y*sin, x*sin + y*cos)
+                )(Math.cos(rad), Math.sin(rad), this)
+              )(Math.PI * deg / 180)
+  
+    static unitVecInDirection = (deg: number) => new Vec(0,-1).rotate(deg)
+    static Zero = new Vec();
+  };
 
   /* 
   ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
@@ -64,8 +82,7 @@ function main() {
   type Body = Readonly<{
     id: string,
     bodyType: BodyType,
-    x: number,
-    y: number
+    pos: Vec
   }>
 
   type State = Readonly<{
@@ -78,13 +95,10 @@ function main() {
       Functions 
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
-  const torusWrap = (x: number) => { 
+  const torusWrap = ({x,y}:Vec) => { 
     const s=Constants.CanvasSize, 
-      wrap = (v:number) => v < 0 ? 
-                        v + s : 
-                            v > s ? 
-                            v - s : v;
-    return wrap(x);
+      wrap = (v:number) => v < 0 ? v + s : v > s ? v - s : v;
+    return new Vec(wrap(x),wrap(y))
   }
 
   function createCarsForEachCarRow(colNum: number, rowNum: number, cars: Body[]): Body[]{
@@ -95,8 +109,7 @@ function main() {
             {
               id: "car" + colNum + rowNum,
               bodyType: "car",
-              x: colNum*(Constants.CarWidth + Constants.CarSeparation),
-              y: rowNum,
+              pos: new Vec(colNum*(Constants.CarWidth + Constants.CarSeparation), rowNum)
             }
           )
         )
@@ -115,8 +128,7 @@ function main() {
     frog:{
       id: "frog",
       bodyType: "frog",
-      x: Constants.FrogStartX,
-      y: Constants.FrogStartY
+      pos: new Vec(Constants.FrogStartX, Constants.FrogStartY),
     },
     cars: createCarsForEachCarRow(3, Constants.CarRow3 - Constants.RowHeight + Constants.CarSpacingFromZones, [])
 
@@ -126,15 +138,15 @@ function main() {
     if (event instanceof Move){
       return {...currentState, frog: {
         ...currentState.frog, 
-        x: event.axis === 'x' ? (torusWrap(currentState.frog.x + event.change)) : currentState.frog.x,
-        y: event.axis === 'y' ? (currentState.frog.y + event.change) : currentState.frog.y,
+        pos: event.axis === 'x' ? torusWrap(new Vec((currentState.frog.pos.x + event.change), currentState.frog.pos.y)) :
+              new Vec((currentState.frog.pos.x), (currentState.frog.pos.y+ event.change))
       }
     }
     }else if (event instanceof Tick){
       return {
         ...currentState,
         cars: currentState.cars.map((car: Body) => {
-          return {...car, x: torusWrap(car.x + 10)};
+          return {...car, pos: torusWrap(new Vec(car.pos.x+10, car.pos.y))};
         })
       }
     } else {
@@ -157,11 +169,7 @@ function main() {
 
   function updateView(s: State){
     const canvas = document.getElementById("svgCanvas")!;
-    //frog
     const frog = document.getElementById(s.frog.id);
-    frog?.setAttribute("x", String(s.frog.x));
-    frog?.setAttribute("y", String(s.frog.y));
-
     //cars
     s.cars.forEach((carState: Body) => {
       const car = document.getElementById(carState.id);
@@ -172,8 +180,8 @@ function main() {
         newCar.setAttribute("id", carState.id);
         newCar.setAttribute("width", String(Constants.CarWidth));
         newCar.setAttribute("height", String(Constants.CarHeight));
-        newCar.setAttribute("x", String(carState.x));
-        newCar.setAttribute("y", String(carState.y));
+        newCar.setAttribute("x", String(carState.pos.x));
+        newCar.setAttribute("y", String(carState.pos.y));
         newCar.setAttribute(
           "style",
           "fill: red"
@@ -181,11 +189,27 @@ function main() {
         canvas.appendChild(newCar)
       } 
       else{
-        car.setAttribute("x", String(carState.x));
+        car.setAttribute("x", String(carState.pos.x));
       }
     }
     )
-
+    //frog
+    if (frog === null){
+      const newFrog = document.createElementNS(canvas.namespaceURI, "rect");
+      newFrog.setAttribute("id", s.frog.id);
+      newFrog.setAttribute("width", String(Constants.FrogWidth));
+      newFrog.setAttribute("height", String(Constants.FrogHeight));
+      newFrog.setAttribute("x", String(s.frog.pos.x));
+      newFrog.setAttribute("y", String(s.frog.pos.y));
+      newFrog.setAttribute(
+        "style",
+        "fill: yellowgreen"
+      );
+      canvas.appendChild(newFrog);
+    } else{
+      frog.setAttribute("x", String(s.frog.pos.x));
+      frog.setAttribute("y", String(s.frog.pos.y));
+    }
   }
 
   merge(up$, down$, left$, right$, tick$).pipe(scan(reduceState, initialState)).subscribe(updateView);
