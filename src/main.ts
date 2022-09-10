@@ -16,13 +16,15 @@ function main() {
    * Document your code!
    */
   const Constants = {
-    CanvasSize: 600,
-    GameTickDuration: 150,
-    FrogStartX: 250,
-    FrogStartY: 550,
+    CANVAS_SIZE: 600,
+    GAME_TICK_DURATION: 150,
+    FROG_START_X: 250,
+    FROG_START_Y: 550,
     FrogWidth: 30,
     FrogHeight: 35,
     MoveChange: 60,
+    FrogColour: "yellowgreen",
+    //car 
     CarWidth: 55,
     CarHeight: 30,
     CarSeparation: 100,
@@ -31,11 +33,15 @@ function main() {
     CarRow1: 480,
     CarRow2: 420,
     CarRow3: 360,
+    CarColour: "red",
+
+    //log
     LogWidth: 100,
     LogHeight: 40,
     LogSeparation: 150,
     LogSpacingFromZones: 10,
-    LogRow1: 240
+    LogRow1: 240,
+    LogColour: "brown"
   } as const
 
   /* 
@@ -73,7 +79,7 @@ function main() {
   const left$ = keydown$.pipe(filter(e => String(e.key) == "a"), map(_ => new Move('x', -60)));
   const right$ = keydown$.pipe(filter(e => String(e.key) == "d"), map(_ => new Move('x', 60)));
 
-  const tick$ = interval(Constants.GameTickDuration).pipe(
+  const tick$ = interval(Constants.GAME_TICK_DURATION).pipe(
     map(number => new Tick(number))
   );
   
@@ -82,15 +88,16 @@ function main() {
       Types  
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
-  type BodyType = "frog" | "car" | "log";
+  type ViewType = "frog" | "car" | "log";
 
   type Body = Readonly<{
     id: string,
-    bodyType: BodyType,
+    viewType: ViewType,
     x: number,
     y: number,
-    w: number,
-    h: number
+    width: number,
+    height: number
+    colour: string
   }>
 
   type State = Readonly<{
@@ -106,7 +113,7 @@ function main() {
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
   const torusWrap = (x: number) => { 
-    const s=Constants.CanvasSize, 
+    const s=Constants.CANVAS_SIZE, 
       wrap = (v:number) => v < 0 ? 
                         v + s : 
                             v > s ? 
@@ -117,10 +124,10 @@ function main() {
   //https://developer.mozilla.org/en-US/docs/Games/Techniques/2D_collision_detection
   const handleCollisions = (s: State) => {
     const bodiesCollided = ([a,b]: [Body, Body]) => 
-      a.x < b.x + b.w &&
-      a.x + a.w > b.x &&
-      a.y < b.y + b.h &&
-      a.h + a.y > b.y
+      a.x < b.x + b.width &&
+      a.x + a.width > b.x &&
+      a.y < b.y + b.height &&
+      a.height + a.y > b.y
     const frogCollidedWithCar = s.cars.filter(r => bodiesCollided([s.frog,r])).length > 0
     const frogCollideWithLog = s.logs.filter(r => bodiesCollided([s.frog,r])).length > 0
 
@@ -130,14 +137,15 @@ function main() {
     }
   }
 
-  const createBody = (id: String, bodyType: BodyType, x: number, y: number, w: number, h: number) => 
+  const createBody = (id: String, bodyType: ViewType, x: number, y: number, w: number, h: number, c: String) => 
     <Body>{
       id: id,
-      bodyType: bodyType,
+      viewType: bodyType,
       x: x,
       y: y,
-      w: w,
-      h: h,
+      width: w,
+      height: h,
+      colour: c
     }
 
   function createCarsForEachCarRow(colNum: number, rowNum: number, cars: Body[]): Body[]{
@@ -150,7 +158,8 @@ function main() {
                       colNum*(Constants.CarWidth + Constants.CarSeparation),
                       rowNum,
                       Constants.CarWidth,
-                      Constants.CarHeight
+                      Constants.CarHeight,
+                      Constants.CarColour
                       )
           )
         )
@@ -168,7 +177,8 @@ function main() {
                     colNum*(Constants.LogWidth + Constants.LogSeparation),
                     rowNum,
                     Constants.LogWidth,
-                    Constants.LogHeight
+                    Constants.LogHeight,
+                    Constants.LogColour
                     )
         )
       )
@@ -179,14 +189,18 @@ function main() {
       Game Creation and Update
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
+  const attr = (e:Element, o:{ [key: string|number]: Object }) =>
+    { for(const k in o) e.setAttribute(k,String(o[k])) }
+
   const initialState: State ={
     frog: createBody(
           "frog",
           "frog", 
-          Constants.FrogStartX, 
-          Constants.FrogStartY,
+          Constants.FROG_START_X, 
+          Constants.FROG_START_Y,
           Constants.FrogWidth,
-          Constants.FrogHeight
+          Constants.FrogHeight,
+          Constants.FrogColour
         ),
     cars: createCarsForEachCarRow(3, Constants.CarRow3 - Constants.RowHeight + Constants.CarSpacingFromZones, []),
     logs: createLogs(3, Constants.LogRow1 + Constants.LogSpacingFromZones, []),
@@ -209,7 +223,7 @@ function main() {
           return {...car, x: torusWrap(car.x+10)};
         })),
         logs: (currentState.logs.map((log: Body) => {
-          return {...log, x: torusWrap(log.x+10)};
+          return {...log, x: torusWrap(log.x+50)};
         }))
       }
       return handleCollisions(newState);
@@ -218,84 +232,42 @@ function main() {
     }
   }
 
-
-  // const svg = document.querySelector("#svgCanvas") as SVGElement & HTMLElement;
-  // // Example on adding an element
-  // const circle = document.createElementNS(svg.namespaceURI, "circle");
-  // circle.setAttribute("r", "10");
-  // circle.setAttribute("cx", "100");
-  // circle.setAttribute("cy", "280");
-  // circle.setAttribute(
-  //   "style",
-  //   "fill: green; stroke: green; stroke-width: 1px;"
-  // );
-  // svg.appendChild(circle);
-
   function updateView(s: State){
     const canvas = document.getElementById("svgCanvas")!;
     const frog = document.getElementById(s.frog.id);
+  
+    /*
+    From asteroids code
+    */
+    const updateBodyView = (b:Body) => {
+        function createBodyView() {
+          const v = document.createElementNS(canvas.namespaceURI, "rect")!;
+          attr(v,{id: b.id, x: b.x, y: b.y, width: b.width, height: b.height, style: `fill: ${b.colour}`});
+          v.classList.add(b.viewType)
+          canvas.appendChild(v)
+          return v;
+        }
+        const v = document.getElementById(b.id) || createBodyView();
+        attr(v,{x: b.x,cy: b.y});
+      };
+
     //cars
     s.cars.forEach((carState: Body) => {
       const car = document.getElementById(carState.id);
-
-      if (car === null){
-        const newCar = document.createElementNS(canvas.namespaceURI, "rect");
-
-        newCar.setAttribute("id", carState.id);
-        newCar.setAttribute("width", String(Constants.CarWidth));
-        newCar.setAttribute("height", String(Constants.CarHeight));
-        newCar.setAttribute("x", String(carState.x));
-        newCar.setAttribute("y", String(carState.y));
-        newCar.setAttribute(
-          "style",
-          "fill: red"
-        )
-        canvas.appendChild(newCar)
-      } 
-      else{
-        car.setAttribute("x", String(carState.x));
+      updateBodyView(carState);
       }
-    }
     )
     
-
+    //logs
     s.logs.forEach((logState: Body) => {
       const log = document.getElementById(logState.id);
-
-      if (log === null){
-        const newLog = document.createElementNS(canvas.namespaceURI, "rect");
-
-        newLog.setAttribute("id", logState.id);
-        newLog.setAttribute("width", String(Constants.LogWidth));
-        newLog.setAttribute("height", String(Constants.LogHeight));
-        newLog.setAttribute("x", String(logState.x));
-        newLog.setAttribute("y", String(logState.y));
-        newLog.setAttribute(
-          "style",
-          "fill: brown"
-        )
-        canvas.appendChild(newLog)
-      } 
-      else{
-        log.setAttribute("x", String(logState.x));
+      updateBodyView(logState);
       }
-    }
     )
 
+    updateBodyView(s.frog);
     //frog
-    if (frog === null){
-      const newFrog = document.createElementNS(canvas.namespaceURI, "rect");
-      newFrog.setAttribute("id", s.frog.id);
-      newFrog.setAttribute("width", String(Constants.FrogWidth));
-      newFrog.setAttribute("height", String(Constants.FrogHeight));
-      newFrog.setAttribute("x", String(s.frog.x));
-      newFrog.setAttribute("y", String(s.frog.y));
-      newFrog.setAttribute(
-        "style",
-        "fill: yellowgreen"
-      );
-      canvas.appendChild(newFrog);
-    } else{
+    if (frog){
       frog.setAttribute("x", String(s.frog.x));
       frog.setAttribute("y", String(s.frog.y));
       if (s.gameOver === true){
@@ -310,12 +282,10 @@ function main() {
         )
       }
     }
-
   }
 
   merge(up$, down$, left$, right$, tick$).pipe(scan(reduceState, initialState)).subscribe(updateView);
 }
-
 // The following simply runs your main function on window load.  Make sure to leave it in place.
 if (typeof window !== "undefined") {
   window.onload = () => {
