@@ -46,7 +46,9 @@ function main() {
     TargetAreaPosX: 50,
 
     ScorePosX: 10, 
-    ScorePosY: 35
+    ScorePosY: 25,
+    
+    HighScorePosY: 45
   } as const
 
   /* 
@@ -121,6 +123,8 @@ function main() {
     logs: Readonly<Body[]>,
     winPositions: Readonly<[]>,
     gameOver: boolean,
+    score: number,
+    highScore: number
   }>
 
   /* 
@@ -222,33 +226,40 @@ function main() {
     cars: createObstacles(3, Constants.CarRow3 - Constants.RowHeight + Constants.CarSpacingFromZones, 3, "car", 1, []),
     logs: createObstacles(2, Constants.LogRow1 - Constants.RowHeight + Constants.LogSpacingFromZones, 3, "log", 1, []),
     winPositions: [],
-    gameOver: false
+    gameOver: false,
+    score: 0,
+    highScore: 0
   }
 
   const reduceState = (currentState: State, event: Move|Tick|Restart): State => {
-    if (event instanceof Move){
-      const newState = <State>{...currentState, frog: {
-        ...currentState.frog, 
-        x: event.axis === 'x' ? (torusWrap(currentState.frog.x + event.change)) : currentState.frog.x,
-        y: event.axis === 'y' ? (currentState.frog.y + event.change) : currentState.frog.y,
+    if (!currentState.gameOver){
+      if (event instanceof Move){
+        const newState = <State>{...currentState, frog: {
+          ...currentState.frog, 
+          x: event.axis === 'x' ? (torusWrap(currentState.frog.x + event.change)) : currentState.frog.x,
+          y: event.axis === 'y' ? (currentState.frog.y + event.change) : currentState.frog.y,
+        }
+        }
+        return handleCollisions(newState);
+      }else if (event instanceof Tick){
+        const newState = <State>{
+          ...currentState,
+          cars: (currentState.cars.map((car: Body) => {
+            return {...car, x: torusWrap(car.x + car.direction*(car.y/100*5))};
+          })),
+          logs: (currentState.logs.map((log: Body) => {
+            return {...log, x: torusWrap(log.x+ log.direction*50)};
+          }))
+        }
+        return handleCollisions(newState);
+      } else {
+        return currentState;
       }
-      }
-      return handleCollisions(newState);
-    }else if (event instanceof Tick){
-      const newState = <State>{
-        ...currentState,
-        cars: (currentState.cars.map((car: Body) => {
-          return {...car, x: torusWrap(car.x + car.direction*(car.y/100*5))};
-        })),
-        logs: (currentState.logs.map((log: Body) => {
-          return {...log, x: torusWrap(log.x+ log.direction*50)};
-        }))
-      }
-      return handleCollisions(newState);
-    } else if (event instanceof Restart){
-      return initialState;
-    } else {
-      return currentState;
+    } else{
+        if (event instanceof Restart){
+          return {...initialState, highScore: currentState.highScore};
+        }
+        return currentState;
     }
   }
 
@@ -286,17 +297,22 @@ function main() {
     
     const v = document.createElementNS(canvas.namespaceURI, "text");
     attr(v, {x: Constants.ScorePosX, y: Constants.ScorePosY, style: "fill: white"});
-    v.textContent = "Score:";
+    v.textContent = "Score: " + s.score;
     canvas.appendChild(v)
+
+    const t = document.createElementNS(canvas.namespaceURI, "text");
+    attr(t, {x: Constants.ScorePosX, y: Constants.HighScorePosY, style: "fill: white"});
+    t.textContent = "High Score: " + s.highScore;
+    canvas.appendChild(t)
     //Frog dies
-    if (s.gameOver === true){ 
-      subscription$.unsubscribe(); 
+    // if (s.gameOver === true){ 
+    //   subscription$.unsubscribe(); 
       
-      keydown$.pipe(filter(e => String(e.key) === 'r')).subscribe(_ => main());
-    }
+    //   keydown$.pipe(filter(e => String(e.key) === 'r')).subscribe(_ => main());
+    // }
   }
 
-  const subscription$ = merge(up$, down$, left$, right$, tick$).pipe(scan(reduceState, initialState)).subscribe(updateView);
+  merge(restart$, up$, down$, left$, right$, tick$).pipe(scan(reduceState, initialState)).subscribe(updateView);
 }
 // The following simply runs your main function on window load.  Make sure to leave it in place.
 if (typeof window !== "undefined") {
