@@ -40,7 +40,7 @@ function main() {
     LogHeight: 40,
     LogSeparation: 150,
     LogSpacingFromZones: 10,
-    LogRow1: 240,
+    LogRow1: 120,
     LogColour: "brown",
 
     TargetAreaPosX: 50,
@@ -56,6 +56,8 @@ function main() {
   */
   class Tick { constructor(public readonly elapsed:number) {} };
   class Move { constructor(public readonly axis: 'y'|'x', public readonly change: -60 | 60) {}};
+  class Restart { constructor(){} };
+
   class RNG {
     // LCG using GCC's constants
     m = 0x80000000; // 2**31
@@ -85,6 +87,8 @@ function main() {
   const down$ = keydown$.pipe(filter(e => String(e.key) == "s"), map(_ => new Move('y', 60)));
   const left$ = keydown$.pipe(filter(e => String(e.key) == "a"), map(_ => new Move('x', -60)));
   const right$ = keydown$.pipe(filter(e => String(e.key) == "d"), map(_ => new Move('x', 60)));
+
+  const restart$ = keydown$.pipe(filter(e => String(e.key) == "r"), map(_ => new Restart()));
 
   const tick$ = interval(Constants.GAME_TICK_DURATION).pipe(
     map(number => new Tick(number))
@@ -149,7 +153,6 @@ function main() {
       a.y < b.y + b.height &&
       a.height + a.y > b.y
     const frogCollidedWithCar = s.cars.filter(r => bodiesCollided([s.frog,r])).length > 0
-    const frogCollideWithLog = s.logs.filter(r => bodiesCollided([s.frog,r])).length > 0
 
     return <State>{
       ...s,
@@ -217,12 +220,12 @@ function main() {
           0
         ),
     cars: createObstacles(3, Constants.CarRow3 - Constants.RowHeight + Constants.CarSpacingFromZones, 3, "car", 1, []),
-    logs: createObstacles(2, Constants.LogRow1 - Constants.RowHeight + Constants.LogSpacingFromZones, 1, "log", 1, []),
+    logs: createObstacles(2, Constants.LogRow1 - Constants.RowHeight + Constants.LogSpacingFromZones, 3, "log", 1, []),
     winPositions: [],
     gameOver: false
   }
 
-  const reduceState = (currentState: State, event: Move|Tick): State => {
+  const reduceState = (currentState: State, event: Move|Tick|Restart): State => {
     if (event instanceof Move){
       const newState = <State>{...currentState, frog: {
         ...currentState.frog, 
@@ -238,12 +241,14 @@ function main() {
           return {...car, x: torusWrap(car.x + car.direction*(car.y/100*5))};
         })),
         logs: (currentState.logs.map((log: Body) => {
-          return {...log, x: torusWrap(log.x+50)};
+          return {...log, x: torusWrap(log.x+ log.direction*50)};
         }))
       }
       return handleCollisions(newState);
+    } else if (event instanceof Restart){
+      return initialState;
     } else {
-      return currentState
+      return currentState;
     }
   }
 
@@ -286,7 +291,6 @@ function main() {
     //Frog dies
     if (s.gameOver === true){ 
       subscription$.unsubscribe(); 
-      
       
       keydown$.pipe(filter(e => String(e.key) === 'r')).subscribe(_ => main());
     }
