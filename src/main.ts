@@ -43,6 +43,12 @@ function main() {
     LogRow1: 120,
     LogColour: "brown",
 
+    RiverWidth: 600,
+    RiverX: 0,
+    RiverY: 120,
+    RiverHeight: 180,
+    RiverColour: "darkblue",
+
     TargetAreaPosX: 50,
 
     ScorePosX: 10, 
@@ -103,7 +109,7 @@ function main() {
   */
   type Direction = -1|0|1 //-1 stands for left, 1 stands for right, 0 stands for user controlled object
 
-  type ViewType = "frog" | "car" | "log";
+  type ViewType = "frog" | "car" | "log" | "river";
 
   type Body = Readonly<{
     id: string,
@@ -122,6 +128,7 @@ function main() {
     cars: Readonly<Body[]>,
     logs: Readonly<Body[]>,
     winPositions: Readonly<[]>,
+    river: Body,
     gameOver: boolean,
     score: number,
     highScore: number
@@ -156,11 +163,13 @@ function main() {
       a.x + a.width > b.x &&
       a.y < b.y + b.height &&
       a.height + a.y > b.y
-    const frogCollidedWithCar = s.cars.filter(r => bodiesCollided([s.frog,r])).length > 0
+    const frogCollidedWithCar = s.cars.filter(r => bodiesCollided([s.frog,r])).length > 0;
+    const frogCollidedWithLog = s.logs.filter(r => bodiesCollided([s.frog,r])).length > 0;
+    const frogCollidedWithRiver = bodiesCollided([s.frog, s.river]);
 
     return <State>{
       ...s,
-      gameOver: frogCollidedWithCar
+      gameOver: frogCollidedWithCar || (!frogCollidedWithLog &&frogCollidedWithRiver)
     }
   }
 
@@ -225,6 +234,7 @@ function main() {
         ),
     cars: createObstacles(3, Constants.CarRow3 - Constants.RowHeight + Constants.CarSpacingFromZones, 3, "car", 1, []),
     logs: createObstacles(2, Constants.LogRow1 - Constants.RowHeight + Constants.LogSpacingFromZones, 3, "log", 1, []),
+    river: createBody("river", "river", Constants.RiverX, Constants.RiverY, Constants.RiverWidth, Constants.RiverHeight, Constants.RiverColour, 0),
     winPositions: [],
     gameOver: false,
     score: 0,
@@ -280,7 +290,8 @@ function main() {
         const v = document.getElementById(b.id) || createBodyView();
         attr(v,{x: b.x,y: b.y});
       };
-
+    
+    updateBodyView(s.river);
     //cars
     s.cars.forEach((carState: Body) => {
       updateBodyView(carState);
@@ -293,6 +304,8 @@ function main() {
       }
     )
 
+    
+
     updateBodyView(s.frog);
     
     const v = document.createElementNS(canvas.namespaceURI, "text");
@@ -304,12 +317,6 @@ function main() {
     attr(t, {x: Constants.ScorePosX, y: Constants.HighScorePosY, style: "fill: white"});
     t.textContent = "High Score: " + s.highScore;
     canvas.appendChild(t)
-    //Frog dies
-    // if (s.gameOver === true){ 
-    //   subscription$.unsubscribe(); 
-      
-    //   keydown$.pipe(filter(e => String(e.key) === 'r')).subscribe(_ => main());
-    // }
   }
 
   merge(restart$, up$, down$, left$, right$, tick$).pipe(scan(reduceState, initialState)).subscribe(updateView);
