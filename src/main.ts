@@ -57,6 +57,7 @@ function main() {
     TargetArea2X: 255,
     TargetArea3X: 435,
     TargetAreaColour: "lightgray",
+    TargetAreaOccupiedColour: "darkgray",
 
     //coordinates for score in canvas
     ScorePosX: 10, 
@@ -112,11 +113,6 @@ function main() {
     occupied: boolean   //other than viewType TargetArea, this will always be false
   }>;
 
-  type TargetArea = Readonly<{
-    body: Body,
-    occupied: boolean
-  }>;
-
   type State = Readonly<{
     frog: Body,
     cars: Readonly<Body[]>,
@@ -162,15 +158,18 @@ function main() {
     const frogCollidedWithCar = s.cars.filter(r => bodiesCollided([s.frog,r])).length > 0;
     const frogCollidedWithLog = s.logs.filter(r => bodiesCollided([s.frog,r])).length > 0;
     const frogCollidedWithRiver = bodiesCollided([s.frog, s.river]);
-    const frogCollisionsWithTargetArea = s.targetAreas.filter(r => bodiesCollided([s.frog, r])).length;
-
+    const targetAreaVacancy = s.targetAreas.map(r => r.occupied);
+    const frogCollidedWithTargetArea = s.targetAreas.filter(r => bodiesCollided([s.frog, r])).length > 0;
+    
     return <State>{
       ...s,
+      frog: {...s.frog, x: frogCollidedWithTargetArea? Constants.FROG_START_X : s.frog.x, y: frogCollidedWithTargetArea? Constants.FROG_START_Y : s.frog.y},
       targetAreas: (s.targetAreas.map((targetArea: Body) => {
         const scored = bodiesCollided([targetArea, s.frog])
         return {...targetArea, occupied: scored};
       })),
-      score: s.score + frogCollisionsWithTargetArea,
+      score: frogCollidedWithTargetArea ? s.score + 1: s.score,
+      highScore: s.score > s.highScore ? s.score : s.highScore,
       gameOver: frogCollidedWithCar || (!frogCollidedWithLog &&frogCollidedWithRiver)
     }
   }
