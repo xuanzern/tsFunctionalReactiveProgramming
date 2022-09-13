@@ -107,8 +107,9 @@ function main() {
     width: number,
     height: number,
     colour: string,
-    speed: number,
-    direction: Direction
+    speed: number,    //frog and river has speed of 0 
+    direction: Direction, //frog and river has speed of 0
+    occupied: boolean   //other than viewType TargetArea, this will always be false
   }>;
 
   type TargetArea = Readonly<{
@@ -123,7 +124,7 @@ function main() {
     river: Body,
     targetAreas: Readonly<Body[]>,
     gameOver: boolean,
-    landed: boolean,
+    landed: Readonly<boolean[]>,
     score: number,
     highScore: number
   }>
@@ -161,12 +162,15 @@ function main() {
     const frogCollidedWithCar = s.cars.filter(r => bodiesCollided([s.frog,r])).length > 0;
     const frogCollidedWithLog = s.logs.filter(r => bodiesCollided([s.frog,r])).length > 0;
     const frogCollidedWithRiver = bodiesCollided([s.frog, s.river]);
-    const frogCollidedWithTargetArea = s.targetAreas.map(r => bodiesCollided([s.frog, r]));
-    console.log(frogCollidedWithTargetArea);
-    
+    const frogCollisionsWithTargetArea = s.targetAreas.filter(r => bodiesCollided([s.frog, r])).length;
+
     return <State>{
       ...s,
-      // landed: frogCollidedWithTargetArea,
+      targetAreas: (s.targetAreas.map((targetArea: Body) => {
+        const scored = bodiesCollided([targetArea, s.frog])
+        return {...targetArea, occupied: scored};
+      })),
+      score: s.score + frogCollisionsWithTargetArea,
       gameOver: frogCollidedWithCar || (!frogCollidedWithLog &&frogCollidedWithRiver)
     }
   }
@@ -245,7 +249,7 @@ function main() {
     river: createBody("river", "river", Constants.RiverX, Constants.RiverY, Constants.RiverWidth, Constants.RiverHeight, Constants.RiverColour, 0, 0),  
     targetAreas: createTargetAreas(),
     gameOver: false,
-    landed: false,
+    landed: [false,false,false],
     score: 0,
     highScore: 0
   }
