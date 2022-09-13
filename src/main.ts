@@ -51,6 +51,11 @@ function main() {
     RiverColour: "dodgerblue",
 
     TargetAreaPosX: 50,
+    TargetAreaWidth: 30,
+    TargetAreaHeight: 30,
+    TargetAreaRow: 75,
+    TargetAreaX: 255,
+    TargetAreaColour: "lightgray",
 
     //coordinates for score in canvas
     ScorePosX: 10, 
@@ -66,7 +71,6 @@ function main() {
   class Tick { constructor(public readonly elapsed:number) {} };
   class Move { constructor(public readonly axis: 'y'|'x', public readonly change: -60 | 60) {}};
   class Restart { constructor(){} };
-
 
   /* 
   ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
@@ -92,7 +96,7 @@ function main() {
   */
   type Direction = -1|0|1 //-1 stands for left, 1 stands for right, 0 stands for user controlled object
 
-  type ViewType = "frog" | "car" | "log" | "river";
+  type ViewType = "frog" | "car" | "log" | "river" | "targetArea";
 
   type Body = Readonly<{
     id: string,
@@ -112,6 +116,7 @@ function main() {
     logs: Readonly<Body[]>,
     winPositions: Readonly<[]>,
     river: Body,
+    targetArea: Body,
     gameOver: boolean,
     score: number,
     highScore: number
@@ -150,7 +155,7 @@ function main() {
     const frogCollidedWithCar = s.cars.filter(r => bodiesCollided([s.frog,r])).length > 0;
     const frogCollidedWithLog = s.logs.filter(r => bodiesCollided([s.frog,r])).length > 0;
     const frogCollidedWithRiver = bodiesCollided([s.frog, s.river]);
-
+    
     return <State>{
       ...s,
       gameOver: frogCollidedWithCar || (!frogCollidedWithLog &&frogCollidedWithRiver)
@@ -222,6 +227,7 @@ function main() {
     cars: createObstacles(3, Constants.CarTopRow - Constants.RowHeight + Constants.CarSpacingFromZones, 3, "car", 2.5, 1, []),
     logs: createObstacles(2, Constants.LogTopRow - Constants.RowHeight + Constants.LogSpacingFromZones, 3, "log", 2, 1, []),
     river: createBody("river", "river", Constants.RiverX, Constants.RiverY, Constants.RiverWidth, Constants.RiverHeight, Constants.RiverColour, 0, 0),
+    targetArea: createBody("targetArea", "targetArea", Constants.TargetAreaX, Constants.TargetAreaRow, Constants.TargetAreaWidth, Constants.TargetAreaHeight, Constants.TargetAreaColour,0,0),
     winPositions: [],
     gameOver: false,
     score: 0,
@@ -303,6 +309,7 @@ function main() {
 
     updateBodyView(s.frog);
     
+    updateBodyView(s.targetArea);
     const updateScoreView = () => {
       function createScoreView(){
         const score = document.createElementNS(canvas.namespaceURI, "text");
