@@ -22,38 +22,39 @@ function main() {
     FROG_START_Y: 555,
     FrogWidth: 30,
     FrogHeight: 30,
-    MoveChange: 60,
+    MoveChange: 60,   
     FrogColour: "yellowgreen",
+    FrogDeadColour: "red",
+
     //car 
     CarWidth: 55,
     CarHeight: 30,
     CarSeparation: 100,
     RowHeight: 60,
     CarSpacingFromZones: 15,
-    CarRow1: 480,
-    CarRow2: 420,
-    CarRow3: 360,
-    CarColour: "red",
+    CarTopRow: 360,
+    CarColour: "orange",
 
     //log
     LogWidth: 100,
     LogHeight: 40,
     LogSeparation: 150,
     LogSpacingFromZones: 10,
-    LogRow1: 120,
+    LogTopRow: 120,
     LogColour: "brown",
 
+    //river
     RiverWidth: 600,
     RiverX: 0,
     RiverY: 120,
     RiverHeight: 180,
-    RiverColour: "darkblue",
+    RiverColour: "dodgerblue",
 
     TargetAreaPosX: 50,
 
+    //coordinates for score in canvas
     ScorePosX: 10, 
     ScorePosY: 25,
-    
     HighScorePosY: 45
   } as const
 
@@ -66,24 +67,6 @@ function main() {
   class Move { constructor(public readonly axis: 'y'|'x', public readonly change: -60 | 60) {}};
   class Restart { constructor(){} };
 
-  class RNG {
-    // LCG using GCC's constants
-    m = 0x80000000; // 2**31
-    a = 1103515245;
-    c = 12345;
-    state: number;
-    constructor(seed: number) {
-      this.state = seed ? seed : Math.floor(Math.random() * (this.m - 1));
-    }
-    nextInt() {
-      this.state = (this.a * this.state + this.c) % this.m;
-      return this.state;
-    }
-    nextFloat() {
-      // returns in range [0,1]
-      return this.nextInt() / (this.m - 1);
-    } 
-  }
 
   /* 
   ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
@@ -152,8 +135,13 @@ function main() {
     return n === -1 ? 1 : -1;
   }
 
-  //https://developer.mozilla.org/en-US/docs/Games/Techniques/2D_collision_detection
   const handleCollisions = (s: State): State => {
+    /**
+     * Function to ahndle all collisions in the game
+     * Modified from asteroids05.ts
+     * Collision logic from:
+     * https://developer.mozilla.org/en-US/docs/Games/Techniques/2D_collision_detection 
+     */
     const bodiesCollided = ([a,b]: [Body, Body]): boolean => 
       a.x < b.x + b.width &&
       a.x + a.width > b.x &&
@@ -213,7 +201,7 @@ function main() {
 
   /* 
   ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
-      Game Creation and Update
+      Game States and Update
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
   const attr = (e:Element, o:{ [key: string|number]: Object }) =>
@@ -231,8 +219,8 @@ function main() {
           0,
           0
         ),
-    cars: createObstacles(3, Constants.CarRow3 - Constants.RowHeight + Constants.CarSpacingFromZones, 3, "car", 2.5, 1, []),
-    logs: createObstacles(2, Constants.LogRow1 - Constants.RowHeight + Constants.LogSpacingFromZones, 3, "log", 2, 1, []),
+    cars: createObstacles(3, Constants.CarTopRow - Constants.RowHeight + Constants.CarSpacingFromZones, 3, "car", 2.5, 1, []),
+    logs: createObstacles(2, Constants.LogTopRow - Constants.RowHeight + Constants.LogSpacingFromZones, 3, "log", 2, 1, []),
     river: createBody("river", "river", Constants.RiverX, Constants.RiverY, Constants.RiverWidth, Constants.RiverHeight, Constants.RiverColour, 0, 0),
     winPositions: [],
     gameOver: false,
@@ -241,6 +229,9 @@ function main() {
   }
 
   const reduceState = (currentState: State, event: Move|Tick|Restart): State => {
+    /**
+     * state transducer
+     */
     if (!currentState.gameOver){
       if (event instanceof Move){
         const newState = <State>{...currentState, frog: {
@@ -275,10 +266,14 @@ function main() {
   }
 
   function updateView(s: State){
+    /**
+     * Updates the attributes of all objects in the html.
+     * This is the only IMPURE function in this program
+     */
     const canvas = document.getElementById("svgCanvas")!;
     
     /*
-    From asteroids code
+    From asteroids05.ts
     */
     const updateBodyView = (b:Body) => {
         function createBodyView() {
@@ -332,6 +327,13 @@ function main() {
     
     updateScoreView();
 
+    if (s.gameOver){
+      const frog = document.getElementById("frog")!;
+      attr(frog, {style: "fill: "+ Constants.FrogDeadColour});
+    } else{
+      const frog = document.getElementById("frog")!;
+      attr(frog, {style: "fill: "+ Constants.FrogColour});
+    }
   }
 
   merge(restart$, up$, down$, left$, right$, tick$).pipe(scan(reduceState, initialState)).subscribe(updateView);
