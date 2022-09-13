@@ -50,11 +50,12 @@ function main() {
     RiverHeight: 180,
     RiverColour: "dodgerblue",
 
-    TargetAreaPosX: 50,
     TargetAreaWidth: 30,
     TargetAreaHeight: 30,
     TargetAreaRow: 75,
-    TargetAreaX: 255,
+    TargetArea1X: 75,
+    TargetArea2X: 255,
+    TargetArea3X: 435,
     TargetAreaColour: "lightgray",
 
     //coordinates for score in canvas
@@ -114,9 +115,8 @@ function main() {
     frog: Body,
     cars: Readonly<Body[]>,
     logs: Readonly<Body[]>,
-    winPositions: Readonly<[]>,
     river: Body,
-    targetArea: Body,
+    targetAreas: Readonly<Body[]>,
     gameOver: boolean,
     score: number,
     highScore: number
@@ -204,6 +204,13 @@ function main() {
         createObstaclesForOneRow(numberPerRow, startRow + Constants.RowHeight, speed-0.5, oppositeDirection(direction), obstacles)))
   }
 
+  function createTargetAreas(): Body[]{
+    const targetArea1 = createBody("targetArea", "targetArea", Constants.TargetArea1X, Constants.TargetAreaRow, Constants.TargetAreaWidth, Constants.TargetAreaHeight, Constants.TargetAreaColour,0,0);
+    const targetArea2 = createBody("targetArea2", "targetArea", Constants.TargetArea2X, Constants.TargetAreaRow, Constants.TargetAreaWidth, Constants.TargetAreaHeight, Constants.TargetAreaColour,0,0);
+    const targetArea3 = createBody("targetArea3", "targetArea", Constants.TargetArea3X, Constants.TargetAreaRow, Constants.TargetAreaWidth, Constants.TargetAreaHeight, Constants.TargetAreaColour,0,0);
+    return [targetArea1, targetArea2, targetArea3];
+  }
+
   /* 
   ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
       Game States and Update
@@ -226,9 +233,8 @@ function main() {
         ),
     cars: createObstacles(3, Constants.CarTopRow - Constants.RowHeight + Constants.CarSpacingFromZones, 3, "car", 2.5, 1, []),
     logs: createObstacles(2, Constants.LogTopRow - Constants.RowHeight + Constants.LogSpacingFromZones, 3, "log", 2, 1, []),
-    river: createBody("river", "river", Constants.RiverX, Constants.RiverY, Constants.RiverWidth, Constants.RiverHeight, Constants.RiverColour, 0, 0),
-    targetArea: createBody("targetArea", "targetArea", Constants.TargetAreaX, Constants.TargetAreaRow, Constants.TargetAreaWidth, Constants.TargetAreaHeight, Constants.TargetAreaColour,0,0),
-    winPositions: [],
+    river: createBody("river", "river", Constants.RiverX, Constants.RiverY, Constants.RiverWidth, Constants.RiverHeight, Constants.RiverColour, 0, 0),  
+    targetAreas: createTargetAreas(),
     gameOver: false,
     score: 0,
     highScore: 0
@@ -307,9 +313,13 @@ function main() {
       }
     )
 
+    s.targetAreas.forEach((targetAreaState: Body) => {
+      updateBodyView(targetAreaState);
+    }
+    )
     updateBodyView(s.frog);
     
-    updateBodyView(s.targetArea);
+    
     const updateScoreView = () => {
       function createScoreView(){
         const score = document.createElementNS(canvas.namespaceURI, "text");
