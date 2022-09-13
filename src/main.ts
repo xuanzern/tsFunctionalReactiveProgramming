@@ -109,7 +109,12 @@ function main() {
     colour: string,
     speed: number,
     direction: Direction
-  }>
+  }>;
+
+  type TargetArea = Readonly<{
+    body: Body,
+    occupied: boolean
+  }>;
 
   type State = Readonly<{
     frog: Body,
@@ -118,6 +123,7 @@ function main() {
     river: Body,
     targetAreas: Readonly<Body[]>,
     gameOver: boolean,
+    landed: boolean,
     score: number,
     highScore: number
   }>
@@ -142,7 +148,7 @@ function main() {
 
   const handleCollisions = (s: State): State => {
     /**
-     * Function to ahndle all collisions in the game
+     * Function to handle all collisions in the game
      * Modified from asteroids05.ts
      * Collision logic from:
      * https://developer.mozilla.org/en-US/docs/Games/Techniques/2D_collision_detection 
@@ -155,9 +161,12 @@ function main() {
     const frogCollidedWithCar = s.cars.filter(r => bodiesCollided([s.frog,r])).length > 0;
     const frogCollidedWithLog = s.logs.filter(r => bodiesCollided([s.frog,r])).length > 0;
     const frogCollidedWithRiver = bodiesCollided([s.frog, s.river]);
+    const frogCollidedWithTargetArea = s.targetAreas.map(r => bodiesCollided([s.frog, r]));
+    console.log(frogCollidedWithTargetArea);
     
     return <State>{
       ...s,
+      // landed: frogCollidedWithTargetArea,
       gameOver: frogCollidedWithCar || (!frogCollidedWithLog &&frogCollidedWithRiver)
     }
   }
@@ -236,6 +245,7 @@ function main() {
     river: createBody("river", "river", Constants.RiverX, Constants.RiverY, Constants.RiverWidth, Constants.RiverHeight, Constants.RiverColour, 0, 0),  
     targetAreas: createTargetAreas(),
     gameOver: false,
+    landed: false,
     score: 0,
     highScore: 0
   }
