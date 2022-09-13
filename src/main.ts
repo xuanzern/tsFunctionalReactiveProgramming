@@ -119,8 +119,8 @@ function main() {
     width: number,
     height: number,
     colour: string,
-    direction: number
-    // speed: number  //frog doesn't have speed attribute
+    speed: number,
+    direction: Direction
   }>
 
   type State = Readonly<{
@@ -139,15 +139,7 @@ function main() {
       Game Physics/Creation Functions 
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
-  const nextRandom = () => {
-    /**
-     * returns a random number in the range [0, 3]
-     */
-    const rng = new RNG(1);
-    return rng.nextFloat() * 3;
-  }
-
-  const torusWrap = (x: number) => { 
+  const torusWrap = (x: number): number => { 
     const s=Constants.CANVAS_SIZE, 
       wrap = (v:number) => v < 0 ? 
                         v + s : 
@@ -156,9 +148,13 @@ function main() {
     return wrap(x);
   }
 
+  const oppositeDirection = (n: Direction): Direction => {
+    return n === -1 ? 1 : -1;
+  }
+
   //https://developer.mozilla.org/en-US/docs/Games/Techniques/2D_collision_detection
-  const handleCollisions = (s: State) => {
-    const bodiesCollided = ([a,b]: [Body, Body]) => 
+  const handleCollisions = (s: State): State => {
+    const bodiesCollided = ([a,b]: [Body, Body]): boolean => 
       a.x < b.x + b.width &&
       a.x + a.width > b.x &&
       a.y < b.y + b.height &&
@@ -173,7 +169,7 @@ function main() {
     }
   }
 
-  const createBody = (id: String, bodyType: ViewType, x: number, y: number, w: number, h: number, c: String, d: number)=> 
+  const createBody = (id: String, bodyType: ViewType, x: number, y: number, w: number, h: number, c: String, s: number, d: Direction): Body => 
     <Body>{
       id: id,
       viewType: bodyType,
@@ -182,19 +178,20 @@ function main() {
       width: w,
       height: h,
       colour: c,
+      speed: s,
       direction: d
     }
 
-  function createObstacles(numberPerRow: number, startRow: number, rows: number, viewType: ViewType, direction: number, obstacles: Body[]): Body[] {
+  function createObstacles(numberPerRow: number, startRow: number, rows: number, viewType: ViewType, speed: number, direction: Direction, obstacles: Body[]): Body[] {
     const width= (viewType === "car") ? Constants.CarWidth : Constants.LogWidth;
     const height = (viewType === "car") ? Constants.CarHeight : Constants.LogHeight;
     const separation = (viewType === "car") ? Constants.CarSeparation : Constants.LogSeparation;
     const colour = (viewType === "car") ? Constants.CarColour : Constants.LogColour;
     
-    function createObstaclesForOneRow(numberPerRow: number, rowNum: number, direction: number, obstacles: Body[]): Body[]{
+    function createObstaclesForOneRow(numberPerRow: number, rowNum: number, speed: number, direction: Direction, obstacles: Body[]): Body[]{
       return numberPerRow === 0?
       obstacles :
-      createObstaclesForOneRow(numberPerRow-1, rowNum, direction, obstacles.concat(
+      createObstaclesForOneRow(numberPerRow-1, rowNum, speed, direction, obstacles.concat(
         createBody(
           String(viewType) + numberPerRow + rowNum,
           viewType,
@@ -203,14 +200,15 @@ function main() {
           width,
           height,
           colour,
+          speed,
           direction
         )
       ))
     }
 
     return rows === 0 ?
-      obstacles : obstacles.concat(createObstacles(numberPerRow, startRow + Constants.RowHeight, rows - 1, viewType, direction*-1,
-        createObstaclesForOneRow(numberPerRow, startRow + Constants.RowHeight, direction*-1, obstacles)))
+      obstacles : obstacles.concat(createObstacles(numberPerRow, startRow + Constants.RowHeight, rows - 1, viewType, speed-0.5, oppositeDirection(direction),
+        createObstaclesForOneRow(numberPerRow, startRow + Constants.RowHeight, speed-0.5, oppositeDirection(direction), obstacles)))
   }
 
   /* 
@@ -230,11 +228,12 @@ function main() {
           Constants.FrogWidth,
           Constants.FrogHeight,
           Constants.FrogColour,
+          0,
           0
         ),
-    cars: createObstacles(3, Constants.CarRow3 - Constants.RowHeight + Constants.CarSpacingFromZones, 3, "car", 1, []),
-    logs: createObstacles(2, Constants.LogRow1 - Constants.RowHeight + Constants.LogSpacingFromZones, 3, "log", 1, []),
-    river: createBody("river", "river", Constants.RiverX, Constants.RiverY, Constants.RiverWidth, Constants.RiverHeight, Constants.RiverColour, 0),
+    cars: createObstacles(3, Constants.CarRow3 - Constants.RowHeight + Constants.CarSpacingFromZones, 3, "car", 2.5, 1, []),
+    logs: createObstacles(2, Constants.LogRow1 - Constants.RowHeight + Constants.LogSpacingFromZones, 3, "log", 2, 1, []),
+    river: createBody("river", "river", Constants.RiverX, Constants.RiverY, Constants.RiverWidth, Constants.RiverHeight, Constants.RiverColour, 0, 0),
     winPositions: [],
     gameOver: false,
     score: 0,
@@ -255,13 +254,15 @@ function main() {
         const newState = <State>{
           ...currentState,
           cars: (currentState.cars.map((car: Body) => {
-            return {...car, x: torusWrap(car.x + car.direction*(car.y/100*5))};
+            return {...car, x: torusWrap(car.x + car.direction*car.speed*10)};
           })),
           logs: (currentState.logs.map((log: Body) => {
-            return {...log, x: torusWrap(log.x+ log.direction*50)};
+            return {...log, x: torusWrap(log.x+ log.direction*log.speed*10)};
           }))
         }
         return handleCollisions(newState);
+      } else if (event instanceof Restart){
+        return {...initialState, highScore: currentState.highScore};
       } else {
         return currentState;
       }
@@ -292,6 +293,7 @@ function main() {
       };
     
     updateBodyView(s.river);
+
     //cars
     s.cars.forEach((carState: Body) => {
       updateBodyView(carState);
@@ -304,19 +306,32 @@ function main() {
       }
     )
 
-    
-
     updateBodyView(s.frog);
     
-    const v = document.createElementNS(canvas.namespaceURI, "text");
-    attr(v, {x: Constants.ScorePosX, y: Constants.ScorePosY, style: "fill: white"});
-    v.textContent = "Score: " + s.score;
-    canvas.appendChild(v)
+    const updateScoreView = () => {
+      function createScoreView(){
+        const score = document.createElementNS(canvas.namespaceURI, "text");
+        attr(score, {id: "score", x: Constants.ScorePosX, y: Constants.ScorePosY, style: "fill: white"});
+        canvas.appendChild(score);
+        return score;
+      }
 
-    const t = document.createElementNS(canvas.namespaceURI, "text");
-    attr(t, {x: Constants.ScorePosX, y: Constants.HighScorePosY, style: "fill: white"});
-    t.textContent = "High Score: " + s.highScore;
-    canvas.appendChild(t)
+      function createHighScoreView(){
+        const highScore = document.createElementNS(canvas.namespaceURI, "text");
+        attr(highScore, {id: "highScore", x: Constants.ScorePosX, y: Constants.HighScorePosY, style: "fill: white"});
+        canvas.appendChild(highScore);
+        return highScore;
+      }
+
+      const u = document.getElementById("score") || createScoreView();
+      const v = document.getElementById("highScore") || createHighScoreView();
+
+      u.textContent = "Score: " + s.score;
+      v.textContent = "High Score: " + s.highScore;
+    }
+    
+    updateScoreView();
+
   }
 
   merge(restart$, up$, down$, left$, right$, tick$).pipe(scan(reduceState, initialState)).subscribe(updateView);
