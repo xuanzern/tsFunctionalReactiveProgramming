@@ -29,6 +29,7 @@ function main() {
     OBSTACLE_SPEED: 5,
     DIFFICULTY_MULTIPLIER: 1.5,
     ROW_HEIGHT: 60,
+    SPEED_CHANGE_FOR_EACH_ROW: 0.5,
     
     //car 
     CAR_WIDTH: 55,
@@ -171,16 +172,16 @@ function main() {
     return n === -1 ? 1 : -1;
   }
 
-  // Checks a State for collision
-  // 
+  
+  /**
+   * Function to handle all collisions in the game given a state
+   * Game over when frog collides with river or car
+   * Modified from asteroids05.ts
+   * Collision logic from:
+   * https://developer.mozilla.org/en-US/docs/Games/Techniques/2D_collision_detection 
+   */
   const handleCollisions = (s: State): State => {
-    /**
-     * Function to handle all collisions in the game
-     * Modified from asteroids05.ts
-     * Collision logic from:
-     * https://developer.mozilla.org/en-US/docs/Games/Techniques/2D_collision_detection 
-     */
-    const bodiesCollided = ([a,b]: [Body, Body]): boolean => 
+    const bodiesCollided = ([a,b]: [Body, Body]): boolean =>  // collision boolean
       a.x < b.x + b.width &&
       a.x + a.width > b.x &&
       a.y < b.y + b.height &&
@@ -205,10 +206,11 @@ function main() {
     }
   }
 
-  const createBody = (id: String, bodyType: ViewType, x: number, y: number, w: number, h: number, c: String, s: number, d: Direction): Body => 
+  // creates a body object given the parameters
+  const createBody = (id: String, viewType: ViewType, x: number, y: number, w: number, h: number, c: String, s: number, d: Direction): Body => 
     <Body>{
       id: id,
-      viewType: bodyType,
+      viewType: viewType,
       x: x,
       y: y,
       width: w,
@@ -218,12 +220,25 @@ function main() {
       direction: d
     }
 
+  /**
+   * Creates obstacles given the following parameters
+   * @param numberPerRow numbers of obstacles per row
+   * @param startRow  starting row
+   * @param rows    number of rows of obstacles to create
+   * @param viewType  viewType of the Body (obstacle)
+   * @param speed   speed of the obstacle
+   * @param direction   direction of the obstacle
+   * @param obstacles   Body array of obstacles
+   * @returns a Body array (obstacles)
+   */
   function createObstacles(numberPerRow: number, startRow: number, rows: number, viewType: ViewType, speed: number, direction: Direction, obstacles: Body[]): Body[] {
     const width= (viewType === "car") ? CONSTANTS.CAR_WIDTH : CONSTANTS.LOG_WIDTH,
       height = (viewType === "car") ? CONSTANTS.CAR_HEIGHT : CONSTANTS.LOG_HEIGHT,
       separation = (viewType === "car") ? CONSTANTS.CAR_SEPARATION : CONSTANTS.LOG_SEPARATION,
       colour = (viewType === "car") ? CONSTANTS.CAR_COLOUR : CONSTANTS.LOG_COLOUR;
     
+    // function to create obstacles for one row
+    // written with reference to PASS week 6 code (createAliens)
     function createObstaclesForOneRow(numberPerRow: number, rowNum: number, speed: number, direction: Direction, obstacles: Body[]): Body[]{
       return numberPerRow === 0?
       obstacles :
@@ -243,10 +258,11 @@ function main() {
     }
 
     return rows === 0 ?
-      obstacles : obstacles.concat(createObstacles(numberPerRow, startRow + CONSTANTS.ROW_HEIGHT, rows - 1, viewType, speed-0.5, oppositeDirection(direction),
-        createObstaclesForOneRow(numberPerRow, startRow + CONSTANTS.ROW_HEIGHT, speed-0.5, oppositeDirection(direction), obstacles)))
+      obstacles : obstacles.concat(createObstacles(numberPerRow, startRow + CONSTANTS.ROW_HEIGHT, rows - 1, viewType, speed-CONSTANTS.SPEED_CHANGE_FOR_EACH_ROW, oppositeDirection(direction),
+        createObstaclesForOneRow(numberPerRow, startRow + CONSTANTS.ROW_HEIGHT, speed-CONSTANTS.SPEED_CHANGE_FOR_EACH_ROW, oppositeDirection(direction), obstacles)))
   }
 
+  // function used to create the target areas where the frog goes to
   function createTargetAreas(): Body[]{
     const targetArea1 = createBody("targetArea", "targetArea", CONSTANTS.TARGET_AREA_1_X, CONSTANTS.TARGET_AREA_ROW, CONSTANTS.TARGET_AREA_WIDTH, CONSTANTS.TARGET_AREA_HEIGHT, CONSTANTS.TARGET_AREA_COLOUR,0,0),
       targetArea2 = createBody("targetArea2", "targetArea", CONSTANTS.TARGET_AREA_2_X, CONSTANTS.TARGET_AREA_ROW, CONSTANTS.TARGET_AREA_WIDTH, CONSTANTS.TARGET_AREA_HEIGHT, CONSTANTS.TARGET_AREA_COLOUR,0,0),
@@ -254,17 +270,22 @@ function main() {
     return [targetArea1, targetArea2, targetArea3];
   }
 
+
   /* 
   ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
       Game States and Update
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
   /**
-   * from asteroids.ts/ course notes
+   * Sets the number of attributes on an Element at once
+   * Taken from asteroidsts.05/course notes
+   * @param e  the Element
+   * @param o  a property bag
    */
   const attr = (e:Element, o:{ [key: string|number]: Object }) =>
     { for(const k in o) e.setAttribute(k,String(o[k])) }
 
+  // returns the initial state of the game
   const initialState: State ={
     frog: createBody(
           "frog",
@@ -324,52 +345,70 @@ function main() {
     }
   }
 
+  /* 
+  ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
+      HTML Update (IMPURE)
+  └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+  */
+ 
+  /**
+   * Updates the attributes of all objects in the html.
+   * This is the only IMPURE function in this program
+   * Updates the HTML view according to the current state of the game
+   */
   function updateView(s: State){
-    /**
-     * Updates the attributes of all objects in the html.
-     * This is the only IMPURE function in this program
-     */
     const canvas = document.getElementById("svgCanvas")!;
     
-    /*
-    From asteroids05.ts
-    */
+    // from asteroids05.ts
+    // Given a body, returns the HTML object represeting the body
     function createBodyView(b:Body): Element {
       const v = document.createElementNS(canvas.namespaceURI, "rect")!;
-      attr(v,{id: b.id, x: b.x, y: b.y, width: b.width, height: b.height, style: `fill: ${b.colour}`});
+      attr(v,{id: b.id, x: b.x, y: b.y, width: b.width, height: b.height, style: "fill: " + b.colour});
       v.classList.add(b.viewType)
       canvas.appendChild(v)
       return v;
     }
 
+    // From asteroids05.ts
+    // Updates the view in the HTML of an object
     const updateBodyView = (b:Body) => {
         const v = document.getElementById(b.id) || createBodyView(b);
         attr(v,{x: b.x,y: b.y});
       };
     
+    // Update view for river
     updateBodyView(s.river);
 
-    //cars
+    // Update view for all cars
     s.cars.forEach((carState: Body) => {
       updateBodyView(carState);
       }
     )
 
-    //logs
+    // Update view for all logs
     s.logs.forEach((logState: Body) => {
       updateBodyView(logState);
       }
     )
 
+    // Update view for all target areas
     s.targetAreas.forEach((targetAreaState: Body) => {
       const v = document.getElementById(targetAreaState.id) || createBodyView(targetAreaState);
       targetAreaState.occupied ? attr(v, {style: "fill: " + CONSTANTS.TARGET_AREA_OCCUPIED_COLOUR}) : attr(v, {style: "fill: " + CONSTANTS.TARGET_AREA_COLOUR})
     }
     )
+
+    // Update view for the frog
     updateBodyView(s.frog);
+    const frog = document.getElementById("frog")!;
+
+    // updates the colour of the frog when the frog dies
+    s.gameOver ? attr(frog, {style: "fill: "+ CONSTANTS.FROG_DEAD_COLOUR}) : attr(frog, {style: "fill: "+ CONSTANTS.FROG_COLOUR});
     
-    
-    const updateScoreView = () => {
+    // updates the scores and the level of the game on the canvas
+    const updateScoreLevelView = () => {
+
+      //create score view on HTML
       function createScoreView(){
         const score = document.createElementNS(canvas.namespaceURI, "text");
         attr(score, {id: "score", x: CONSTANTS.SCORE_POS_X, y: CONSTANTS.SCORE_POS_Y, style: "fill: white"});
@@ -377,6 +416,7 @@ function main() {
         return score;
       }
 
+      // create high score view on HTML
       function createHighScoreView(){
         const highScore = document.createElementNS(canvas.namespaceURI, "text");
         attr(highScore, {id: "highScore", x: CONSTANTS.SCORE_POS_X, y: CONSTANTS.HIGH_SCORE_POS_Y, style: "fill: white"});
@@ -384,6 +424,7 @@ function main() {
         return highScore;
       }
 
+      // create level view on HTML
       function createLevelView(){
         const levels = document.createElementNS(canvas.namespaceURI, "text");
         attr(levels, {id: "levels", x: CONSTANTS.LEVEL_POS_X, y: CONSTANTS.LEVEL_POS_Y, style: "fill: white"});
@@ -391,26 +432,23 @@ function main() {
         return levels;
       }
 
-      const score = document.getElementById("score") || createScoreView();
-      const highScore = document.getElementById("highScore") || createHighScoreView();
-      const levels = document.getElementById("levels") || createLevelView();
+      const score = document.getElementById("score") || createScoreView(),
+        highScore = document.getElementById("highScore") || createHighScoreView(),
+        levels = document.getElementById("levels") || createLevelView();
 
       score.textContent = "Score: " + s.score;
       highScore.textContent = "High Score: " + s.highScore;
       levels.textContent = "Level: " + s.level;
     }
     
-    updateScoreView();
-
-    if (s.gameOver){
-      const frog = document.getElementById("frog")!;
-      attr(frog, {style: "fill: "+ CONSTANTS.FROG_DEAD_COLOUR});
-    } else{
-      const frog = document.getElementById("frog")!;
-      attr(frog, {style: "fill: "+ CONSTANTS.FROG_COLOUR});
-    }
+    updateScoreLevelView();
   }
-
+  
+  /* 
+  ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
+      Main Game Stream 
+  └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+  */
   merge(restart$, up$, down$, left$, right$, tick$).pipe(scan(reduceState, initialState)).subscribe(updateView);
 }
 
