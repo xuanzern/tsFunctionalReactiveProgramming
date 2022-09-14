@@ -1,6 +1,6 @@
 import "./style.css";
-import { interval, fromEvent, of, merge} from 'rxjs'
-import { map, filter, scan, reduce} from 'rxjs/operators'
+import { interval, fromEvent, merge} from 'rxjs'
+import { map, filter, scan} from 'rxjs/operators'
 function main() {
   /**
    * Inside this function you will use the classes and functions from rx.js
@@ -15,59 +15,60 @@ function main() {
    *
    * Document your code!
    */
-  const Constants = {
+  const CONSTANTS = {
     CANVAS_SIZE: 600,
     GAME_TICK_DURATION: 150,
     FROG_START_X: 255,
     FROG_START_Y: 555,
-    FrogWidth: 30,
-    FrogHeight: 30,
-    MoveChange: 60,   
-    FrogColour: "yellowgreen",
-    FrogDeadColour: "red",
+    FROG_WIDTH: 30,
+    FROG_HEIGHT: 30,
+    MOVE_CHANGE: 60,   
+    FROG_COLOUR: "yellowgreen",
+    FROG_DEAD_COLOUR: "red",
 
-    ObstacleSpeed: 5,
+    OBSTACLE_SPEED: 5,
+    DIFFICULTY_MULTIPLIER: 1.5,
+    ROW_HEIGHT: 60,
     
     //car 
-    CarWidth: 55,
-    CarHeight: 30,
-    CarSeparation: 100,
-    RowHeight: 60,
-    CarSpacingFromZones: 15,
-    CarTopRow: 360,
-    CarColour: "orange",
+    CAR_WIDTH: 55,
+    CAR_HEIGHT: 30,
+    CAR_SEPARATION: 100,
+    CAR_SPACING_FROM_ZONES: 15,
+    CAR_TOP_ROW: 360,
+    CAR_COLOUR: "orange",
 
     //log
-    LogWidth: 100,
-    LogHeight: 40,
-    LogSeparation: 150,
-    LogSpacingFromZones: 10,
-    LogTopRow: 120,
-    LogColour: "brown",
+    LOG_WIDTH: 100,
+    LOG_HEIGHT: 40,
+    LOG_SEPARATION: 150,
+    LOG_SPACING_FROM_ZONES: 10,
+    LOG_TOP_ROW: 120,
+    LOG_COLOUR: "brown",
 
     //river
-    RiverWidth: 600,
-    RiverX: 0,
-    RiverY: 120,
-    RiverHeight: 180,
-    RiverColour: "dodgerblue",
+    RIVER_WIDTH: 600,
+    RIVER_X: 0,
+    RIVER_Y: 120,
+    RIVER_HEIGHT: 180,
+    RIVER_COLOUR: "dodgerblue",
 
     //Target Area
-    TargetAreaWidth: 30,
-    TargetAreaHeight: 30,
-    TargetAreaRow: 75,
-    TargetArea1X: 75,
-    TargetArea2X: 255,
-    TargetArea3X: 435,
-    TargetAreaColour: "white",
-    TargetAreaOccupiedColour: "dimgray",
+    TARGET_AREA_WIDTH: 30,
+    TARGET_AREA_HEIGHT: 30,
+    TARGET_AREA_ROW: 75,
+    TARGET_AREA_1_X: 75,
+    TARGET_AREA_2_X: 255,
+    TARGET_AREA_3_X: 435,
+    TARGET_AREA_COLOUR: "white",
+    TARGET_AREA_OCCUPIED_COLOUR: "dimgray",
 
     //coordinates for scores and levels in canvas
-    ScorePosX: 10, 
-    ScorePosY: 25,
-    HighScorePosY: 45,
-    LevelPosX: 500,
-    LevelPosY: 35
+    SCORE_POS_X: 10, 
+    SCORE_POS_Y: 25,
+    HIGH_SCORE_POS_Y: 45,
+    LEVEL_POS_X: 500,
+    LEVEL_POS_Y: 35
 
   } as const
 
@@ -76,36 +77,50 @@ function main() {
       Classes
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
+  // Tick object for non-player-controlled movements
   class Tick { constructor(public readonly elapsed:number) {} };
+
+  // Move class for moving the frog
   class Move { constructor(public readonly axis: 'y'|'x', public readonly change: -60 | 60) {}};
+
+  // Restart class for restarting the game
   class Restart { constructor(){} };
+
 
   /* 
   ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
       Observable Streams
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
-  const keydown$ = fromEvent<KeyboardEvent>(document, "keydown");
-  const up$ = keydown$.pipe(filter(e => String(e.key) == "w"), map(_ => new Move('y', -60)));
+  const keydown$ = fromEvent<KeyboardEvent>(document, "keydown"); //observable stream for when a key is pressed
+
+  // observable streams for controlling the frog's movements. 
+  const up$ = keydown$.pipe(filter(e => String(e.key) == "w"), map(_ => new Move('y', -60))); 
   const down$ = keydown$.pipe(filter(e => String(e.key) == "s"), map(_ => new Move('y', 60)));
   const left$ = keydown$.pipe(filter(e => String(e.key) == "a"), map(_ => new Move('x', -60)));
   const right$ = keydown$.pipe(filter(e => String(e.key) == "d"), map(_ => new Move('x', 60)));
 
+  // observable stream for restarting the game
   const restart$ = keydown$.pipe(filter(e => String(e.key) == "r"), map(_ => new Restart()));
 
-  const tick$ = interval(Constants.GAME_TICK_DURATION).pipe(
+  // observable stream for non-player-controlled objects
+  const tick$ = interval(CONSTANTS.GAME_TICK_DURATION).pipe(
     map(number => new Tick(number))
   );
   
+
   /* 
   ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
       Types  
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
-  type Direction = -1|0|1 //-1 stands for left, 1 stands for right, 0 stands for user controlled object
-
+  //-1 stands for left, 1 stands for right, 0 stands for user controlled object or non-moving object
+  type Direction = -1|0|1 
+  
+  // types of bodies involved in collision
   type ViewType = "frog" | "car" | "log" | "river" | "targetArea";
 
+  // every object that involved in collision is a body
   type Body = Readonly<{
     id: string,
     viewType: ViewType,
@@ -114,11 +129,12 @@ function main() {
     width: number,
     height: number,
     colour: string,
-    speed: number,    //frog and river has speed of 0 
-    direction: Direction, //frog and river has speed of 0
+    speed: number,      //frog and river has a speed of 0  (player-controlled/non-moving)
+    direction: Direction, //frog and river has direction of 0 (player-controlled/non-moving)
     occupied: boolean   //other than viewType TargetArea, this will always be false
   }>;
 
+  // stores the state of the game
   type State = Readonly<{
     frog: Body,
     cars: Readonly<Body[]>,
@@ -131,13 +147,18 @@ function main() {
     level: number
   }>
 
+
   /* 
   ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
       Game Physics/Creation Functions 
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
+  /**
+   * Wraps a moving body around the left and right edges of the screen
+   * Adapted from asteroids05.ts
+   */
   const torusWrap = (x: number): number => { 
-    const s=Constants.CANVAS_SIZE, 
+    const s=CONSTANTS.CANVAS_SIZE, 
       wrap = (v:number) => v < 0 ? 
                         v + s : 
                             v > s ? 
@@ -145,10 +166,13 @@ function main() {
     return wrap(x);
   }
 
+  // returns the oppostie direction to the input n. When given 1, returns -1. When give -1, returns 1.
   const oppositeDirection = (n: Direction): Direction => {
     return n === -1 ? 1 : -1;
   }
 
+  // Checks a State for collision
+  // 
   const handleCollisions = (s: State): State => {
     /**
      * Function to handle all collisions in the game
@@ -160,16 +184,16 @@ function main() {
       a.x < b.x + b.width &&
       a.x + a.width > b.x &&
       a.y < b.y + b.height &&
-      a.height + a.y > b.y
-    const frogCollidedWithCar = s.cars.filter(r => bodiesCollided([s.frog,r])).length > 0;
-    const frogCollidedWithLog = s.logs.filter(r => bodiesCollided([s.frog,r])).length > 0;
-    const frogCollidedWithRiver = bodiesCollided([s.frog, s.river]);
-    const targetAreasFilled = s.targetAreas.filter(r => r.occupied).length >= 3;
-    const frogCollidedWithTargetArea = s.targetAreas.filter(r => bodiesCollided([s.frog, r])).length > 0;
+      a.height + a.y > b.y,
+      frogCollidedWithCar = s.cars.filter(r => bodiesCollided([s.frog,r])).length > 0,  // boolean - frog collided with car
+      frogCollidedWithLog = s.logs.filter(r => bodiesCollided([s.frog,r])).length > 0,  // boolean - frog collided with log
+      frogCollidedWithRiver = bodiesCollided([s.frog, s.river]),         // boolean- frog collided with river
+      targetAreasFilled = s.targetAreas.filter(r => r.occupied).length >= 3, // boolean - all target areas filled 
+      frogCollidedWithTargetArea = s.targetAreas.filter(r => bodiesCollided([s.frog, r])).length > 0; //boolean - frog collided with target area
     
     return <State>{
       ...s,
-      frog: {...s.frog, x: frogCollidedWithTargetArea? Constants.FROG_START_X : s.frog.x, y: frogCollidedWithTargetArea? Constants.FROG_START_Y : s.frog.y},
+      frog: {...s.frog, x: frogCollidedWithTargetArea? CONSTANTS.FROG_START_X : s.frog.x, y: frogCollidedWithTargetArea? CONSTANTS.FROG_START_Y : s.frog.y},
       targetAreas: (s.targetAreas.map((targetArea: Body) => {
         const scored = bodiesCollided([targetArea, s.frog])
         return {...targetArea, occupied: targetAreasFilled ? false: targetArea.occupied? targetArea.occupied : scored };
@@ -195,10 +219,10 @@ function main() {
     }
 
   function createObstacles(numberPerRow: number, startRow: number, rows: number, viewType: ViewType, speed: number, direction: Direction, obstacles: Body[]): Body[] {
-    const width= (viewType === "car") ? Constants.CarWidth : Constants.LogWidth;
-    const height = (viewType === "car") ? Constants.CarHeight : Constants.LogHeight;
-    const separation = (viewType === "car") ? Constants.CarSeparation : Constants.LogSeparation;
-    const colour = (viewType === "car") ? Constants.CarColour : Constants.LogColour;
+    const width= (viewType === "car") ? CONSTANTS.CAR_WIDTH : CONSTANTS.LOG_WIDTH,
+      height = (viewType === "car") ? CONSTANTS.CAR_HEIGHT : CONSTANTS.LOG_HEIGHT,
+      separation = (viewType === "car") ? CONSTANTS.CAR_SEPARATION : CONSTANTS.LOG_SEPARATION,
+      colour = (viewType === "car") ? CONSTANTS.CAR_COLOUR : CONSTANTS.LOG_COLOUR;
     
     function createObstaclesForOneRow(numberPerRow: number, rowNum: number, speed: number, direction: Direction, obstacles: Body[]): Body[]{
       return numberPerRow === 0?
@@ -219,14 +243,14 @@ function main() {
     }
 
     return rows === 0 ?
-      obstacles : obstacles.concat(createObstacles(numberPerRow, startRow + Constants.RowHeight, rows - 1, viewType, speed-0.5, oppositeDirection(direction),
-        createObstaclesForOneRow(numberPerRow, startRow + Constants.RowHeight, speed-0.5, oppositeDirection(direction), obstacles)))
+      obstacles : obstacles.concat(createObstacles(numberPerRow, startRow + CONSTANTS.ROW_HEIGHT, rows - 1, viewType, speed-0.5, oppositeDirection(direction),
+        createObstaclesForOneRow(numberPerRow, startRow + CONSTANTS.ROW_HEIGHT, speed-0.5, oppositeDirection(direction), obstacles)))
   }
 
   function createTargetAreas(): Body[]{
-    const targetArea1 = createBody("targetArea", "targetArea", Constants.TargetArea1X, Constants.TargetAreaRow, Constants.TargetAreaWidth, Constants.TargetAreaHeight, Constants.TargetAreaColour,0,0);
-    const targetArea2 = createBody("targetArea2", "targetArea", Constants.TargetArea2X, Constants.TargetAreaRow, Constants.TargetAreaWidth, Constants.TargetAreaHeight, Constants.TargetAreaColour,0,0);
-    const targetArea3 = createBody("targetArea3", "targetArea", Constants.TargetArea3X, Constants.TargetAreaRow, Constants.TargetAreaWidth, Constants.TargetAreaHeight, Constants.TargetAreaColour,0,0);
+    const targetArea1 = createBody("targetArea", "targetArea", CONSTANTS.TARGET_AREA_1_X, CONSTANTS.TARGET_AREA_ROW, CONSTANTS.TARGET_AREA_WIDTH, CONSTANTS.TARGET_AREA_HEIGHT, CONSTANTS.TARGET_AREA_COLOUR,0,0),
+      targetArea2 = createBody("targetArea2", "targetArea", CONSTANTS.TARGET_AREA_2_X, CONSTANTS.TARGET_AREA_ROW, CONSTANTS.TARGET_AREA_WIDTH, CONSTANTS.TARGET_AREA_HEIGHT, CONSTANTS.TARGET_AREA_COLOUR,0,0),
+      targetArea3 = createBody("targetArea3", "targetArea", CONSTANTS.TARGET_AREA_3_X, CONSTANTS.TARGET_AREA_ROW, CONSTANTS.TARGET_AREA_WIDTH, CONSTANTS.TARGET_AREA_HEIGHT, CONSTANTS.TARGET_AREA_COLOUR,0,0);
     return [targetArea1, targetArea2, targetArea3];
   }
 
@@ -235,6 +259,9 @@ function main() {
       Game States and Update
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
+  /**
+   * from asteroids.ts/ course notes
+   */
   const attr = (e:Element, o:{ [key: string|number]: Object }) =>
     { for(const k in o) e.setAttribute(k,String(o[k])) }
 
@@ -242,17 +269,17 @@ function main() {
     frog: createBody(
           "frog",
           "frog", 
-          Constants.FROG_START_X, 
-          Constants.FROG_START_Y,
-          Constants.FrogWidth,
-          Constants.FrogHeight,
-          Constants.FrogColour,
+          CONSTANTS.FROG_START_X, 
+          CONSTANTS.FROG_START_Y,
+          CONSTANTS.FROG_WIDTH,
+          CONSTANTS.FROG_HEIGHT,
+          CONSTANTS.FROG_COLOUR,
           0,
           0
         ),
-    cars: createObstacles(3, Constants.CarTopRow - Constants.RowHeight + Constants.CarSpacingFromZones, 3, "car", 2.5, 1, []),
-    logs: createObstacles(2, Constants.LogTopRow - Constants.RowHeight + Constants.LogSpacingFromZones, 3, "log", 2, 1, []),
-    river: createBody("river", "river", Constants.RiverX, Constants.RiverY, Constants.RiverWidth, Constants.RiverHeight, Constants.RiverColour, 0, 0),  
+    cars: createObstacles(3, CONSTANTS.CAR_TOP_ROW - CONSTANTS.ROW_HEIGHT + CONSTANTS.CAR_SPACING_FROM_ZONES, 3, "car", 2.5, 1, []),
+    logs: createObstacles(2, CONSTANTS.LOG_TOP_ROW - CONSTANTS.ROW_HEIGHT + CONSTANTS.LOG_SPACING_FROM_ZONES, 3, "log", 2, 1, []),
+    river: createBody("river", "river", CONSTANTS.RIVER_X, CONSTANTS.RIVER_Y, CONSTANTS.RIVER_WIDTH, CONSTANTS.RIVER_HEIGHT, CONSTANTS.RIVER_COLOUR, 0, 0),  
     targetAreas: createTargetAreas(),
     gameOver: false,
     score: 0,
@@ -277,10 +304,10 @@ function main() {
         const newState = <State>{
           ...currentState,
           cars: (currentState.cars.map((car: Body) => {
-            return {...car, x: torusWrap(car.x + car.direction*currentState.level*car.speed*Constants.ObstacleSpeed)};
+            return {...car, x: torusWrap(car.x + car.direction*(car.speed*CONSTANTS.OBSTACLE_SPEED + currentState.level*CONSTANTS.DIFFICULTY_MULTIPLIER))};
           })),
           logs: (currentState.logs.map((log: Body) => {
-            return {...log, x: torusWrap(log.x+ log.direction*currentState.level*log.speed*Constants.ObstacleSpeed)};
+            return {...log, x: torusWrap(log.x+ log.direction*(log.speed*CONSTANTS.OBSTACLE_SPEED + currentState.level*CONSTANTS.DIFFICULTY_MULTIPLIER))};
           }))
         }
         return handleCollisions(newState);
@@ -336,7 +363,7 @@ function main() {
 
     s.targetAreas.forEach((targetAreaState: Body) => {
       const v = document.getElementById(targetAreaState.id) || createBodyView(targetAreaState);
-      targetAreaState.occupied ? attr(v, {style: "fill: " + Constants.TargetAreaOccupiedColour}) : attr(v, {style: "fill: " + Constants.TargetAreaColour})
+      targetAreaState.occupied ? attr(v, {style: "fill: " + CONSTANTS.TARGET_AREA_OCCUPIED_COLOUR}) : attr(v, {style: "fill: " + CONSTANTS.TARGET_AREA_COLOUR})
     }
     )
     updateBodyView(s.frog);
@@ -345,21 +372,21 @@ function main() {
     const updateScoreView = () => {
       function createScoreView(){
         const score = document.createElementNS(canvas.namespaceURI, "text");
-        attr(score, {id: "score", x: Constants.ScorePosX, y: Constants.ScorePosY, style: "fill: white"});
+        attr(score, {id: "score", x: CONSTANTS.SCORE_POS_X, y: CONSTANTS.SCORE_POS_Y, style: "fill: white"});
         canvas.appendChild(score);
         return score;
       }
 
       function createHighScoreView(){
         const highScore = document.createElementNS(canvas.namespaceURI, "text");
-        attr(highScore, {id: "highScore", x: Constants.ScorePosX, y: Constants.HighScorePosY, style: "fill: white"});
+        attr(highScore, {id: "highScore", x: CONSTANTS.SCORE_POS_X, y: CONSTANTS.HIGH_SCORE_POS_Y, style: "fill: white"});
         canvas.appendChild(highScore);
         return highScore;
       }
 
       function createLevelView(){
         const levels = document.createElementNS(canvas.namespaceURI, "text");
-        attr(levels, {id: "levels", x: Constants.LevelPosX, y: Constants.LevelPosY, style: "fill: white"});
+        attr(levels, {id: "levels", x: CONSTANTS.LEVEL_POS_X, y: CONSTANTS.LEVEL_POS_Y, style: "fill: white"});
         canvas.appendChild(levels);
         return levels;
       }
@@ -377,15 +404,16 @@ function main() {
 
     if (s.gameOver){
       const frog = document.getElementById("frog")!;
-      attr(frog, {style: "fill: "+ Constants.FrogDeadColour});
+      attr(frog, {style: "fill: "+ CONSTANTS.FROG_DEAD_COLOUR});
     } else{
       const frog = document.getElementById("frog")!;
-      attr(frog, {style: "fill: "+ Constants.FrogColour});
+      attr(frog, {style: "fill: "+ CONSTANTS.FROG_COLOUR});
     }
   }
 
   merge(restart$, up$, down$, left$, right$, tick$).pipe(scan(reduceState, initialState)).subscribe(updateView);
 }
+
 // The following simply runs your main function on window load.  Make sure to leave it in place.
 if (typeof window !== "undefined") {
   window.onload = () => {
