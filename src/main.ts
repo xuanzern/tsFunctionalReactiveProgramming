@@ -50,19 +50,23 @@ function main() {
     RiverHeight: 180,
     RiverColour: "dodgerblue",
 
+    //Target Area
     TargetAreaWidth: 30,
     TargetAreaHeight: 30,
     TargetAreaRow: 75,
     TargetArea1X: 75,
     TargetArea2X: 255,
     TargetArea3X: 435,
-    TargetAreaColour: "lightgray",
-    TargetAreaOccupiedColour: "darkgray",
+    TargetAreaColour: "white",
+    TargetAreaOccupiedColour: "dimgray",
 
-    //coordinates for score in canvas
+    //coordinates for scores and levels in canvas
     ScorePosX: 10, 
     ScorePosY: 25,
-    HighScorePosY: 45
+    HighScorePosY: 45,
+    LevelPosX: 500,
+    LevelPosY: 35
+
   } as const
 
   /* 
@@ -158,7 +162,7 @@ function main() {
     const frogCollidedWithCar = s.cars.filter(r => bodiesCollided([s.frog,r])).length > 0;
     const frogCollidedWithLog = s.logs.filter(r => bodiesCollided([s.frog,r])).length > 0;
     const frogCollidedWithRiver = bodiesCollided([s.frog, s.river]);
-    const targetAreaVacancy = s.targetAreas.map(r => r.occupied);
+    const targetAreasFilled = s.targetAreas.filter(r => r.occupied).length >= 3;
     const frogCollidedWithTargetArea = s.targetAreas.filter(r => bodiesCollided([s.frog, r])).length > 0;
     
     return <State>{
@@ -166,9 +170,9 @@ function main() {
       frog: {...s.frog, x: frogCollidedWithTargetArea? Constants.FROG_START_X : s.frog.x, y: frogCollidedWithTargetArea? Constants.FROG_START_Y : s.frog.y},
       targetAreas: (s.targetAreas.map((targetArea: Body) => {
         const scored = bodiesCollided([targetArea, s.frog])
-        return {...targetArea, occupied: scored};
+        return {...targetArea, occupied: targetAreasFilled ? false: targetArea.occupied? targetArea.occupied : scored };
       })),
-      score: frogCollidedWithTargetArea ? s.score + 1: s.score,
+      score: targetAreasFilled ? s.score + 1: s.score,
       highScore: s.score > s.highScore ? s.score : s.highScore,
       gameOver: frogCollidedWithCar || (!frogCollidedWithLog &&frogCollidedWithRiver)
     }
@@ -300,15 +304,16 @@ function main() {
     /*
     From asteroids05.ts
     */
+    function createBodyView(b:Body): Element {
+      const v = document.createElementNS(canvas.namespaceURI, "rect")!;
+      attr(v,{id: b.id, x: b.x, y: b.y, width: b.width, height: b.height, style: `fill: ${b.colour}`});
+      v.classList.add(b.viewType)
+      canvas.appendChild(v)
+      return v;
+    }
+
     const updateBodyView = (b:Body) => {
-        function createBodyView() {
-          const v = document.createElementNS(canvas.namespaceURI, "rect")!;
-          attr(v,{id: b.id, x: b.x, y: b.y, width: b.width, height: b.height, style: `fill: ${b.colour}`});
-          v.classList.add(b.viewType)
-          canvas.appendChild(v)
-          return v;
-        }
-        const v = document.getElementById(b.id) || createBodyView();
+        const v = document.getElementById(b.id) || createBodyView(b);
         attr(v,{x: b.x,y: b.y});
       };
     
@@ -327,7 +332,8 @@ function main() {
     )
 
     s.targetAreas.forEach((targetAreaState: Body) => {
-      updateBodyView(targetAreaState);
+      const v = document.getElementById(targetAreaState.id) || createBodyView(targetAreaState);
+      targetAreaState.occupied ? attr(v, {style: "fill: " + Constants.TargetAreaOccupiedColour}) : attr(v, {style: "fill: " + Constants.TargetAreaColour})
     }
     )
     updateBodyView(s.frog);
@@ -348,11 +354,20 @@ function main() {
         return highScore;
       }
 
-      const u = document.getElementById("score") || createScoreView();
-      const v = document.getElementById("highScore") || createHighScoreView();
+      function createLevelView(){
+        const levels = document.createElementNS(canvas.namespaceURI, "text");
+        attr(levels, {id: "levels", x: Constants.LevelPosX, y: Constants.LevelPosY, style: "fill: white"});
+        canvas.appendChild(levels);
+        return levels;
+      }
 
-      u.textContent = "Score: " + s.score;
-      v.textContent = "High Score: " + s.highScore;
+      const score = document.getElementById("score") || createScoreView();
+      const highScore = document.getElementById("highScore") || createHighScoreView();
+      const levels = document.getElementById("levels") || createLevelView();
+
+      score.textContent = "Score: " + s.score;
+      highScore.textContent = "High Score: " + s.highScore;
+      levels.textContent = "Level: ";
     }
     
     updateScoreView();
