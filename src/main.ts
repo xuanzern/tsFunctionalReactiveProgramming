@@ -26,6 +26,8 @@ function main() {
     FrogColour: "yellowgreen",
     FrogDeadColour: "red",
 
+    ObstacleSpeed: 5,
+    
     //car 
     CarWidth: 55,
     CarHeight: 30,
@@ -124,9 +126,9 @@ function main() {
     river: Body,
     targetAreas: Readonly<Body[]>,
     gameOver: boolean,
-    landed: Readonly<boolean[]>,
     score: number,
-    highScore: number
+    highScore: number,
+    level: number
   }>
 
   /* 
@@ -172,9 +174,10 @@ function main() {
         const scored = bodiesCollided([targetArea, s.frog])
         return {...targetArea, occupied: targetAreasFilled ? false: targetArea.occupied? targetArea.occupied : scored };
       })),
-      score: targetAreasFilled ? s.score + 1: s.score,
+      score: targetAreasFilled ? s.score + 1*s.level: s.score,
       highScore: s.score > s.highScore ? s.score : s.highScore,
-      gameOver: frogCollidedWithCar || (!frogCollidedWithLog &&frogCollidedWithRiver)
+      gameOver: frogCollidedWithCar || (!frogCollidedWithLog &&frogCollidedWithRiver),
+      level: targetAreasFilled? s.level + 1: s.level
     }
   }
 
@@ -252,9 +255,9 @@ function main() {
     river: createBody("river", "river", Constants.RiverX, Constants.RiverY, Constants.RiverWidth, Constants.RiverHeight, Constants.RiverColour, 0, 0),  
     targetAreas: createTargetAreas(),
     gameOver: false,
-    landed: [false,false,false],
     score: 0,
-    highScore: 0
+    highScore: 0,
+    level: 1
   }
 
   const reduceState = (currentState: State, event: Move|Tick|Restart): State => {
@@ -274,10 +277,10 @@ function main() {
         const newState = <State>{
           ...currentState,
           cars: (currentState.cars.map((car: Body) => {
-            return {...car, x: torusWrap(car.x + car.direction*car.speed*10)};
+            return {...car, x: torusWrap(car.x + car.direction*currentState.level*car.speed*Constants.ObstacleSpeed)};
           })),
           logs: (currentState.logs.map((log: Body) => {
-            return {...log, x: torusWrap(log.x+ log.direction*log.speed*10)};
+            return {...log, x: torusWrap(log.x+ log.direction*currentState.level*log.speed*Constants.ObstacleSpeed)};
           }))
         }
         return handleCollisions(newState);
@@ -367,7 +370,7 @@ function main() {
 
       score.textContent = "Score: " + s.score;
       highScore.textContent = "High Score: " + s.highScore;
-      levels.textContent = "Level: ";
+      levels.textContent = "Level: " + s.level;
     }
     
     updateScoreView();
