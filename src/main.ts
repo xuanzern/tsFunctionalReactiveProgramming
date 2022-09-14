@@ -1,3 +1,7 @@
+/**
+ * Lee Xuan Zern
+ * 32306199
+ */
 import "./style.css";
 import { interval, fromEvent, merge} from 'rxjs'
 import { map, filter, scan} from 'rxjs/operators'
@@ -38,6 +42,7 @@ function main() {
     CAR_SPACING_FROM_ZONES: 15,
     CAR_TOP_ROW: 360,
     CAR_COLOUR: "orange",
+    CAR_STARTING_SPEED: 2.5,
 
     //log
     LOG_WIDTH: 100,
@@ -46,6 +51,7 @@ function main() {
     LOG_SPACING_FROM_ZONES: 10,
     LOG_TOP_ROW: 120,
     LOG_COLOUR: "brown",
+    LOG_STARTING_SPEED: 2,
 
     //river
     RIVER_WIDTH: 600,
@@ -73,13 +79,14 @@ function main() {
 
   } as const
 
+
   /* 
   ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
       Classes
   └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
   */
   // Tick object for non-player-controlled movements
-  class Tick { constructor(public readonly elapsed:number) {} };
+  class Tick { constructor() {} };
 
   // Move class for moving the frog
   class Move { constructor(public readonly axis: 'y'|'x', public readonly change: -60 | 60) {}};
@@ -106,7 +113,7 @@ function main() {
 
   // observable stream for non-player-controlled objects
   const tick$ = interval(CONSTANTS.GAME_TICK_DURATION).pipe(
-    map(number => new Tick(number))
+    map(number => new Tick())
   );
   
 
@@ -200,7 +207,7 @@ function main() {
         return {...targetArea, occupied: targetAreasFilled ? false: targetArea.occupied? targetArea.occupied : scored };
       })),
       score: targetAreasFilled ? s.score + 1*s.level: s.score,
-      highScore: s.score > s.highScore ? s.score : s.highScore,
+      highScore: targetAreasFilled && (s.score + 1*s.level > s.highScore) ? s.score+1*s.level : s.highScore,
       gameOver: frogCollidedWithCar || (!frogCollidedWithLog &&frogCollidedWithRiver),
       level: targetAreasFilled? s.level + 1: s.level
     }
@@ -221,28 +228,28 @@ function main() {
     }
 
   /**
-   * Creates obstacles given the following parameters
-   * @param numberPerRow numbers of obstacles per row
+   * Creates objects given the following parameters
+   * @param numberPerRow numbers of objects per row
    * @param startRow  starting row
-   * @param rows    number of rows of obstacles to create
+   * @param rows    number of rows of objects to create
    * @param viewType  viewType of the Body (obstacle)
    * @param speed   speed of the obstacle
    * @param direction   direction of the obstacle
-   * @param obstacles   Body array of obstacles
-   * @returns a Body array (obstacles)
+   * @param objects   Body array of objects
+   * @returns a Body array (objects)
    */
-  function createObstacles(numberPerRow: number, startRow: number, rows: number, viewType: ViewType, speed: number, direction: Direction, obstacles: Body[]): Body[] {
+  function createObjects(numberPerRow: number, startRow: number, rows: number, viewType: ViewType, speed: number, direction: Direction, objects: Body[]): Body[] {
     const width= (viewType === "car") ? CONSTANTS.CAR_WIDTH : CONSTANTS.LOG_WIDTH,
       height = (viewType === "car") ? CONSTANTS.CAR_HEIGHT : CONSTANTS.LOG_HEIGHT,
       separation = (viewType === "car") ? CONSTANTS.CAR_SEPARATION : CONSTANTS.LOG_SEPARATION,
       colour = (viewType === "car") ? CONSTANTS.CAR_COLOUR : CONSTANTS.LOG_COLOUR;
     
-    // function to create obstacles for one row
+    // function to create objects for one row
     // written with reference to PASS week 6 code (createAliens)
-    function createObstaclesForOneRow(numberPerRow: number, rowNum: number, speed: number, direction: Direction, obstacles: Body[]): Body[]{
+    function createObjectsForOneRow(numberPerRow: number, rowNum: number, speed: number, direction: Direction, objects: Body[]): Body[]{
       return numberPerRow === 0?
-      obstacles :
-      createObstaclesForOneRow(numberPerRow-1, rowNum, speed, direction, obstacles.concat(
+      objects :
+      createObjectsForOneRow(numberPerRow-1, rowNum, speed, direction, objects.concat(
         createBody(
           String(viewType) + numberPerRow + rowNum,
           viewType,
@@ -258,8 +265,8 @@ function main() {
     }
 
     return rows === 0 ?
-      obstacles : obstacles.concat(createObstacles(numberPerRow, startRow + CONSTANTS.ROW_HEIGHT, rows - 1, viewType, speed-CONSTANTS.SPEED_CHANGE_FOR_EACH_ROW, oppositeDirection(direction),
-        createObstaclesForOneRow(numberPerRow, startRow + CONSTANTS.ROW_HEIGHT, speed-CONSTANTS.SPEED_CHANGE_FOR_EACH_ROW, oppositeDirection(direction), obstacles)))
+      objects : objects.concat(createObjects(numberPerRow, startRow + CONSTANTS.ROW_HEIGHT, rows - 1, viewType, speed-CONSTANTS.SPEED_CHANGE_FOR_EACH_ROW, oppositeDirection(direction),
+        createObjectsForOneRow(numberPerRow, startRow + CONSTANTS.ROW_HEIGHT, speed-CONSTANTS.SPEED_CHANGE_FOR_EACH_ROW, oppositeDirection(direction), objects)))
   }
 
   // function used to create the target areas where the frog goes to
@@ -298,8 +305,8 @@ function main() {
           0,
           0
         ),
-    cars: createObstacles(3, CONSTANTS.CAR_TOP_ROW - CONSTANTS.ROW_HEIGHT + CONSTANTS.CAR_SPACING_FROM_ZONES, 3, "car", 2.5, 1, []),
-    logs: createObstacles(2, CONSTANTS.LOG_TOP_ROW - CONSTANTS.ROW_HEIGHT + CONSTANTS.LOG_SPACING_FROM_ZONES, 3, "log", 2, 1, []),
+    cars: createObjects(3, CONSTANTS.CAR_TOP_ROW - CONSTANTS.ROW_HEIGHT + CONSTANTS.CAR_SPACING_FROM_ZONES, 3, "car", CONSTANTS.CAR_STARTING_SPEED, 1, []),
+    logs: createObjects(2, CONSTANTS.LOG_TOP_ROW - CONSTANTS.ROW_HEIGHT + CONSTANTS.LOG_SPACING_FROM_ZONES, 3, "log", CONSTANTS.LOG_STARTING_SPEED, 1, []),
     river: createBody("river", "river", CONSTANTS.RIVER_X, CONSTANTS.RIVER_Y, CONSTANTS.RIVER_WIDTH, CONSTANTS.RIVER_HEIGHT, CONSTANTS.RIVER_COLOUR, 0, 0),  
     targetAreas: createTargetAreas(),
     gameOver: false,
@@ -312,7 +319,7 @@ function main() {
     /**
      * state transducer
      */
-    if (!currentState.gameOver){
+    if (!currentState.gameOver){ // movement only allowed when the frog is alive
       if (event instanceof Move){
         const newState = <State>{...currentState, frog: {
           ...currentState.frog, 
@@ -320,7 +327,7 @@ function main() {
           y: event.axis === 'y' ? (currentState.frog.y + event.change) : currentState.frog.y,
         }
         }
-        return handleCollisions(newState);
+        return handleCollisions(newState); 
       }else if (event instanceof Tick){
         const newState = <State>{
           ...currentState,
@@ -337,7 +344,7 @@ function main() {
       } else {
         return currentState;
       }
-    } else{
+    } else{ //only restart input will be registered if game is over
         if (event instanceof Restart){
           return {...initialState, highScore: currentState.highScore};
         }
